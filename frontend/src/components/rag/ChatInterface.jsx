@@ -70,7 +70,7 @@ export function ChatInterface({ session, onSessionUpdate }) {
   return (
     <div className="flex flex-col h-full">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-8">
+      <div className="flex-1 overflow-y-auto px-8 py-6">
         {!session ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4">
@@ -96,7 +96,7 @@ export function ChatInterface({ session, onSessionUpdate }) {
             </p>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-4">
             {messages.map((message, index) => (
               <MessageBubble key={index} type={message.role} {...message} />
             ))}
@@ -107,8 +107,8 @@ export function ChatInterface({ session, onSessionUpdate }) {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 bg-white px-6 py-4">
-        <div className="max-w-4xl mx-auto">
+      <div className="border-t border-gray-200 bg-white px-8 py-4">
+        <div className="max-w-3xl mx-auto">
           <QueryInput onSend={handleSendMessage} disabled={isLoading || !session} />
         </div>
       </div>

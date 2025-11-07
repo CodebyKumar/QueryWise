@@ -1,13 +1,14 @@
-# Modular RAG Frontend
+# DocuMind - AI Document Assistant
 
-A modern React application for the Modular RAG system with Claude-inspired design.
+A modern React application for intelligent document conversations with Claude-inspired design.
 
 ## Features
 
-- 🎨 Claude AI-inspired minimalist design
-- 🔐 JWT authentication with protected routes
-- 📄 Multi-format document upload (PDF, DOCX, HTML, MD, TXT)
-- 💬 Real-time chat interface with source citations
+- 🎨 Modern, Claude AI-inspired design
+- 🔐 Secure JWT authentication
+- 📄 Multi-format document support (PDF, DOCX, HTML, MD, TXT)
+- 💬 Intelligent chat with conversation history
+- 📚 Session management for organized conversations
 - 📱 Fully responsive design
 - ⚡ Built with React 19 + Vite + Tailwind CSS v4
 

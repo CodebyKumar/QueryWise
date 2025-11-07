@@ -51,16 +51,15 @@ export function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
-            <span className="text-white font-semibold text-xl">R</span>
-          </div>
-          <span className="text-2xl font-semibold text-gray-900">Modular RAG</span>
+        <div className="flex flex-col items-center mb-8">
+          <img src="/logo.svg" alt="DocuMind" className="w-16 h-16 mb-3" />
+          <span className="text-2xl font-bold text-gray-900">DocuMind</span>
+          <span className="text-sm text-gray-500">AI Document Assistant</span>
         </div>
 
         <Card padding="lg">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Create your account</h1>
-          <p className="text-gray-600 mb-6">Get started with Modular RAG today</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h1>
+          <p className="text-gray-600 mb-6">Start having intelligent conversations with your documents</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input

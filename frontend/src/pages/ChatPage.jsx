@@ -1,6 +1,7 @@
 import { Header } from '../components/layout/Header';
 import { ChatInterface } from '../components/rag/ChatInterface';
 import { ChatSidebar } from '../components/chat/ChatSidebar';
+import { NotesPanel } from '../components/notes/NotesPanel';
 import { useChatSessions } from '../hooks/useChatSessions';
 import { useToast } from '../hooks/useToast';
 
@@ -28,18 +29,18 @@ export function ChatPage() {
   };
 
   const handleDeleteSession = async (sessionId) => {
-    if (window.confirm('Are you sure you want to delete this chat?')) {
+    if (window.confirm('Delete this chat?')) {
       await deleteSession(sessionId);
     }
   };
 
   const handleUploadSuccess = () => {
-    showToast({ type: 'success', message: 'Document uploaded successfully!' });
+    showToast({ type: 'success', message: 'Document uploaded' });
     refreshSessions();
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-white">
       <Header />
       <div className="flex-1 flex overflow-hidden">
         <ChatSidebar
@@ -50,12 +51,13 @@ export function ChatPage() {
           onDeleteSession={handleDeleteSession}
           onUploadSuccess={handleUploadSuccess}
         />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-white">
           <ChatInterface 
             session={currentSession}
             onSessionUpdate={refreshCurrentSession}
           />
         </div>
+        <NotesPanel sessionId={currentSessionId} />
       </div>
     </div>
   );

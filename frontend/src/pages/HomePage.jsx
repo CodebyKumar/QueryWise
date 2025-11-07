@@ -26,16 +26,16 @@ export function HomePage() {
           </div>
 
           {/* Heading */}
-          <h1 className="text-5xl md:text-6xl font-semibold text-gray-900 mb-6 leading-tight">
-            Your Documents,
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            Meet <span className="text-orange-500">DocuMind</span>
             <br />
-            <span className="text-orange-500">Intelligently Answered</span>
+            <span className="text-gray-700">Your AI Document Assistant</span>
           </h1>
 
           {/* Subheading */}
           <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Upload your documents and ask questions. Get accurate, context-aware answers powered by 
-            state-of-the-art retrieval-augmented generation.
+            Upload your documents and have intelligent conversations. Get accurate, context-aware answers 
+            powered by advanced AI and retrieval technology.
           </p>
 
           {/* CTA Form */}
@@ -105,10 +105,8 @@ export function HomePage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-orange-500 flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">R</span>
-              </div>
-              <span className="text-gray-600">© 2025 Modular RAG. All rights reserved.</span>
+              <img src="/logo.svg" alt="DocuMind" className="w-6 h-6" />
+              <span className="text-gray-600">© 2025 DocuMind. All rights reserved.</span>
             </div>
             <div className="flex items-center gap-6">
               <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
