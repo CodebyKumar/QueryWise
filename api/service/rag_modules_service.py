@@ -114,22 +114,36 @@ class RAGModulesService:
         """
         try:
             query_embedding = await gemini_service.get_embedding(query)
-            if not query_embedding:
+            if not query_embedding or len(query_embedding) == 0:
+                logger.warning("Failed to get query embedding")
                 return []
 
             # 1. Retrieve the top CHILD chunks
             child_results = await pinecone_service.query_vectors(query_embedding, top_k)
             
+            if not child_results:
+                logger.warning("No child chunks retrieved from vector search")
+                return []
+            
             # 2. Get the unique IDs of the parent chunks
-            parent_ids = list(set([
-                res['metadata']['parent_id'] for res in child_results if 'parent_id' in res.get('metadata', {})
-            ]))
+            parent_ids = []
+            for res in child_results:
+                metadata = res.get('metadata', {})
+                if 'parent_id' in metadata:
+                    parent_id = metadata['parent_id']
+                    if parent_id not in parent_ids:
+                        parent_ids.append(parent_id)
             
             if not parent_ids:
+                logger.warning("No parent IDs found in child chunk metadata")
                 return []
 
             # 3. Fetch the full PARENT chunks from the document store
             parent_chunks = await pinecone_service.fetch_parent_chunks(parent_ids)
+            
+            if not parent_chunks:
+                logger.warning("No parent chunks found in document store")
+                return []
             
             logger.info(f"Retrieved {len(parent_chunks)} parent chunks for query")
             return list(parent_chunks.values())

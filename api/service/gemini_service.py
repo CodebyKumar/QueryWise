@@ -115,20 +115,25 @@ class GeminiService:
         """
         import hashlib
         
-        # Simple hash-based embedding (768 dimensions to match Google's model)
-        hash_obj = hashlib.sha256(text.encode())
-        hash_bytes = hash_obj.digest()
-        
-        # Convert to 768-dimensional vector
-        embedding = []
-        for i in range(768):
-            byte_index = i % len(hash_bytes)
-            # Normalize to [-1, 1] range
-            normalized_value = (hash_bytes[byte_index] / 255.0) * 2 - 1
-            embedding.append(normalized_value)
+        try:
+            # Simple hash-based embedding (768 dimensions to match Google's model)
+            hash_obj = hashlib.sha256(text.encode())
+            hash_bytes = hash_obj.digest()
             
-        logger.info(f"Using fallback embedding for text: '{text[:50]}...'")
-        return embedding
+            # Convert to 768-dimensional vector
+            embedding = []
+            for i in range(768):
+                byte_index = i % len(hash_bytes)
+                # Normalize to [-1, 1] range
+                normalized_value = (hash_bytes[byte_index] / 255.0) * 2 - 1
+                embedding.append(normalized_value)
+                
+            logger.info(f"Using fallback embedding for text: '{text[:50]}...'")
+            return embedding
+        except Exception as e:
+            logger.error(f"Failed to generate fallback embedding: {e}")
+            # Return a basic zero vector as last resort
+            return [0.0] * 768
     
     async def generate_answer(self, prompt: str) -> str:
         """Generates a text response based on a prompt using an async call."""

@@ -16,6 +16,11 @@ class PineconeService:
         self.index = None
         self.dimension = settings.embedding_dim  # e.g., 768 for Google's model
         
+        # Persistence paths
+        self.index_path = "data/faiss_index.bin"
+        self.metadata_path = "data/metadata_store.json"
+        self.parent_chunks_path = "data/parent_chunks.json"
+        
         # In-memory stores
         # Maps FAISS index position to our custom vector ID (e.g., 'child_uuid')
         self.index_to_id_map: List[str] = []
@@ -32,11 +37,79 @@ class PineconeService:
             # Add a mapping index to FAISS for easy ID retrieval
             self.index = faiss.IndexIDMap(self.index)
             
-            logger.info(f"Local FAISS index initialized with dimension {self.dimension}.")
+            # Initialize empty lists
+            self.index_to_id_map = []
+            self.metadata_store = {}
+            self.parent_chunk_store = {}
+            
+            # Try to load existing data
+            await self._load_persisted_data()
+            
+            logger.info(f"Local FAISS index initialized with dimension {self.dimension}. Loaded {self.index.ntotal} vectors.")
             return True
         except Exception as e:
             logger.error(f"Failed to initialize FAISS index: {e}")
             return False
+
+    async def _load_persisted_data(self):
+        """Load persisted FAISS index and metadata from disk."""
+        import os
+        import json
+        
+        try:
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            
+            # Load FAISS index
+            if os.path.exists(self.index_path):
+                self.index = faiss.read_index(self.index_path)
+                logger.info(f"Loaded FAISS index from {self.index_path}")
+            
+            # Load metadata
+            if os.path.exists(self.metadata_path):
+                with open(self.metadata_path, 'r') as f:
+                    data = json.load(f)
+                    self.index_to_id_map = data.get('index_to_id_map', [])
+                    self.metadata_store = data.get('metadata_store', {})
+                logger.info(f"Loaded metadata from {self.metadata_path}")
+            
+            # Load parent chunks
+            if os.path.exists(self.parent_chunks_path):
+                with open(self.parent_chunks_path, 'r') as f:
+                    self.parent_chunk_store = json.load(f)
+                logger.info(f"Loaded parent chunks from {self.parent_chunks_path}")
+                
+        except Exception as e:
+            logger.warning(f"Could not load persisted data: {e}")
+
+    async def _save_persisted_data(self):
+        """Save FAISS index and metadata to disk."""
+        import os
+        import json
+        
+        try:
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            
+            # Save FAISS index
+            faiss.write_index(self.index, self.index_path)
+            
+            # Save metadata
+            metadata_data = {
+                'index_to_id_map': self.index_to_id_map,
+                'metadata_store': self.metadata_store
+            }
+            with open(self.metadata_path, 'w') as f:
+                json.dump(metadata_data, f, indent=2)
+            
+            # Save parent chunks
+            with open(self.parent_chunks_path, 'w') as f:
+                json.dump(self.parent_chunk_store, f, indent=2)
+                
+            logger.info("Persisted FAISS index and metadata to disk")
+            
+        except Exception as e:
+            logger.error(f"Failed to save persisted data: {e}")
 
     async def upsert_vectors(self, vectors: List[Dict[str, Any]]) -> bool:
         """
@@ -70,6 +143,9 @@ class PineconeService:
                 
                 self.index.add_with_ids(embeddings_np, ids_np)
                 logger.info(f"Upserted {len(vectors)} vectors into local FAISS index.")
+                
+                # Persist the updated index and metadata
+                await self._save_persisted_data()
             
             return True
         except Exception as e:
@@ -87,12 +163,28 @@ class PineconeService:
         try:
             query_np = np.array([query_vector], dtype='float32')
             
+            # Ensure top_k doesn't exceed available documents
+            actual_top_k = min(top_k, self.index.ntotal)
+            if actual_top_k == 0:
+                logger.warning("No documents available for search.")
+                return []
+            
             # Search the index
-            distances, indices = self.index.search(query_np, top_k)
+            distances, indices = self.index.search(query_np, actual_top_k)
+            
+            # Check if we got valid results
+            if len(indices) == 0 or len(indices[0]) == 0:
+                logger.warning("No search results found.")
+                return []
             
             results = []
             for i, idx in enumerate(indices[0]):
                 if idx == -1:  # FAISS returns -1 for no result
+                    continue
+                
+                # Check if index is valid before accessing index_to_id_map
+                if idx >= len(self.index_to_id_map):
+                    logger.warning(f"Invalid index {idx} returned by FAISS. Max index: {len(self.index_to_id_map) - 1}")
                     continue
                 
                 vector_id = self.index_to_id_map[idx]
@@ -118,6 +210,9 @@ class PineconeService:
             for chunk in parent_chunks:
                 self.parent_chunk_store[chunk['id']] = chunk
             logger.info(f"Stored {len(parent_chunks)} parent chunks in-memory.")
+            
+            # Persist the updated parent chunks
+            await self._save_persisted_data()
             return True
         except Exception as e:
             logger.error(f"Failed to store parent chunks: {e}")
