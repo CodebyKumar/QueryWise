@@ -169,6 +169,7 @@ class GeminiService:
         Your output should be a comma-separated list of the original document numbers, from most relevant to least relevant.
 
         Query: "{query}"
+        Answr the questions in the form of assistant.
 
         Documents:
         """

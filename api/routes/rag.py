@@ -53,6 +53,7 @@ async def index_document(
 )
 async def query_documents(
     query_request: QueryRequest,
+    session_id: str = None,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
@@ -62,9 +63,26 @@ async def query_documents(
     3.  **Post-retrieval**: Reranks documents for relevance.
     4.  **Generation**: Creates a final answer based on the context.
 
+    Optionally provide session_id to save the conversation to a chat session.
+
     This is a protected endpoint and requires authentication.
     """
-    return await rag_controller.orchestrate_rag_flow(query_request, current_user)
+    return await rag_controller.orchestrate_rag_flow(query_request, current_user, session_id)
+
+
+@router.get(
+    "/documents",
+    summary="List all indexed documents"
+)
+async def list_documents(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Returns a list of all indexed documents with their metadata.
+    
+    This is a protected endpoint and requires authentication.
+    """
+    return await rag_controller.get_indexed_documents(current_user)
 
 
 @router.get("/health", summary="Health Check")
