@@ -5,14 +5,12 @@ import { ChatSidebar } from "../components/chat/ChatSidebar";
 import { NotesPanel } from "../components/notes/NotesPanel";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { useChatSessions } from "../hooks/useChatSessions";
-import { useToast } from "../hooks/useToast";
 
 export function ChatPage() {
   const {
     sessions,
     currentSessionId,
     currentSession,
-    loading,
     createSession,
     deleteSession,
     selectSession,
@@ -20,7 +18,6 @@ export function ChatPage() {
     refreshCurrentSession,
   } = useChatSessions();
 
-  const { showToast } = useToast();
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
