@@ -11,6 +11,7 @@ from routes.rag import router as rag_router
 from routes.chat import router as chat_router
 from routes.export import router as export_router
 from routes.speech import router as speech_router
+from routes.query_routes import router as query_router
 
 # --- Basic Logging Configuration ---
 # This will help you see the application startup and shutdown messages in the console.
@@ -75,6 +76,7 @@ app.include_router(rag_router) # The prefix is already defined in the router fil
 app.include_router(chat_router) # Chat session management
 app.include_router(export_router) # PDF export functionality
 app.include_router(speech_router) # Speech-to-text and text-to-speech
+app.include_router(query_router) # Text-to-SQL query service
 
 # --- Root and Health Check Endpoints ---
 @app.get("/", tags=["General"])

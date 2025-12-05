@@ -10,4 +10,5 @@ export const ROUTES = {
   CHAT: '/chat',
   DOCUMENTS: '/documents',
   DOCUMENTS_LIST: '/my-documents',
+  DATABASE_CHAT: '/database-chat',
 };

@@ -95,6 +95,28 @@ export function Header() {
                   </div>
                 </button>
 
+                <button
+                  onClick={() => navigate(ROUTES.DATABASE_CHAT)}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all font-medium"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                      />
+                    </svg>
+                    Database
+                  </div>
+                </button>
+
                 {/* User Menu */}
                 <div className="relative ml-2">
                   <button
@@ -113,9 +135,8 @@ export function Header() {
                       <p className="text-xs text-gray-500">Account</p>
                     </div>
                     <svg
-                      className={`w-4 h-4 text-gray-500 transition-transform ${
-                        showMenu ? "rotate-180" : ""
-                      }`}
+                      className={`w-4 h-4 text-gray-500 transition-transform ${showMenu ? "rotate-180" : ""
+                        }`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -188,7 +209,7 @@ export function Header() {
           </nav>
 
           {/* Mobile menu button */}
-          <button 
+          <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             className="md:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
@@ -208,7 +229,7 @@ export function Header() {
       {/* Mobile Menu */}
       {showMobileMenu && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
             onClick={() => setShowMobileMenu(false)}
           />
@@ -248,6 +269,16 @@ export function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Documents
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigation(ROUTES.DATABASE_CHAT)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-all font-medium"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                    Database
                   </button>
 
                   {/* Logout */}

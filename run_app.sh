@@ -18,15 +18,12 @@ FRONTEND_PID=$!
 echo ">>> Setting up backend environment in '$API_DIR'..."
 cd "../$API_DIR"
 
-# Sync dependencies and ensure requirements are installed
-if [ -f "requirements.txt" ]; then
+# Sync dependencies from pyproject.toml
+if [ -f "pyproject.toml" ]; then
     echo ">>> Syncing dependencies with uv..."
     uv sync
-
-    echo ">>> Installing requirements.txt..."
-    uv add -r requirements.txt
 else
-    echo "!!! requirements.txt not found in $API_DIR"
+    echo "!!! pyproject.toml not found in $API_DIR"
 fi
 
 # Activate the virtual environment
