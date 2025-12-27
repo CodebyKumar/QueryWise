@@ -1,7 +1,10 @@
-fastapi[standard]
-pydantic
+fastapi>=0.110.0
+pydantic>=2.7.0
+pydantic-core>=2.18.0
+pydantic-settings>=2.2.0
 python-dotenv
 motor
+pymongo
 google-genai
 python-jose[cryptography]
 python-multipart
@@ -16,3 +19,5 @@ reportlab
 sarvamai
 sqlalchemy
 psycopg2-binary
+dnspython
+bcrypt

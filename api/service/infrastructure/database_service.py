@@ -17,11 +17,13 @@ class DatabaseService:
         """Connect to MongoDB."""
         try:
             logger.info(f"Connecting to MongoDB at {self.db_url}...")
-            self.client = AsyncIOMotorClient(self.db_url)
+            # Set a 5-second timeout for server selection to avoid hanging cold starts
+            self.client = AsyncIOMotorClient(self.db_url, serverSelectionTimeoutMS=5000)
             self.db = self.client[self.db_name]
             
-            # Ping to verify connection
-            await self.client.admin.command('ping')
+            # Ping with a timeout to verify connection
+            import asyncio
+            await asyncio.wait_for(self.client.admin.command('ping'), timeout=5.0)
             logger.info(f"Successfully connected to MongoDB database: {self.db_name}")
             
             # Create indexes (non-blocking)
