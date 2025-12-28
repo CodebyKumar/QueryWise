@@ -25,6 +25,7 @@ class UserLogin(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
 
 class UserInDB(BaseModel):
+    user_id: str
     username: str
     hashed_password: str
     email: Optional[str] = None
@@ -32,6 +33,7 @@ class UserInDB(BaseModel):
     is_active: bool = True
 
 class User(BaseModel):
+    user_id: str
     username: str
     email: Optional[str] = None
     created_at: datetime

@@ -42,6 +42,7 @@ class AuthController:
             
             return {
                 "message": "User registered successfully",
+                "user_id": user["user_id"],
                 "username": user["username"],
                 "email": user["email"]
             }
@@ -73,7 +74,7 @@ class AuthController:
             # Create access token
             access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
             access_token = create_access_token(
-                data={"sub": user["username"]},
+                data={"sub": user["user_id"]},
                 expires_delta=access_token_expires
             )
             

@@ -61,10 +61,10 @@ def verify_token(token: str) -> Optional[TokenData]:
     """Verify and decode a JWT token"""
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        username: str = payload.get("sub")
-        if username is None:
+        user_id: str = payload.get("sub")
+        if user_id is None:
             return None
-        token_data = TokenData(username=username)
+        token_data = TokenData(user_id=user_id)
         return token_data
     except JWTError:
         return None
@@ -82,7 +82,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise credentials_exception
     
     # Use user_service to fetch user from MongoDB
-    user = await user_service.get_user_by_username(username=token_data.username)
+    user = await user_service.get_user_by_id(user_id=token_data.user_id)
     if user is None:
         raise credentials_exception
     
