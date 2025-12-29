@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from typing import Dict, Any
 from schema.chat_schema import CreateSessionRequest
 from controller.chat_controller import chat_controller
@@ -81,3 +81,17 @@ async def update_session_title(
             detail="Title is required"
         )
     return await chat_controller.update_session_title(session_id, title, current_user)
+
+@router.put(
+    "/sessions/{session_id}/documents",
+    summary="Update session selected documents"
+)
+async def update_session_documents(
+    session_id: str,
+    documents: list[str] = Body(..., embed=True),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Update the list of selected documents for a chat session.
+    """
+    return await chat_controller.update_session_documents(session_id, documents, current_user)

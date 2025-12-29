@@ -3,6 +3,7 @@ from service.rag.gemini_service import gemini_service
 from service.rag.embedding_service import embedding_service
 from service.rag.pinecone_service import pinecone_service
 from service.rag.parent_chunks_service import parent_chunks_service
+from service.rag.rerank_service import rerank_service
 import logging
 import uuid
 import re
@@ -115,7 +116,7 @@ class RAGService:
         Concept from Paper: Small-to-Big Retrieval + Relevance Filtering
         """
         try:
-            query_embedding = await embedding_service.get_embedding(query, task_type="RETRIEVAL_QUERY")
+            query_embedding = await embedding_service.get_embedding(query)
             if not query_embedding or len(query_embedding) == 0:
                 logger.warning("Failed to get query embedding")
                 return []
@@ -225,31 +226,39 @@ class RAGService:
             
             logger.info(f"Reranking {len(chunks)} chunks, will keep up to {keep_count} after quality filtering")
             
-            # Use Gemini as a cross-encoder to rerank documents
-            reranked_chunks = await gemini_service.rerank_documents(query=query, documents=chunks, top_n=keep_count)
+            # Use FlashRank to rerank documents locally
+            # This implements the Post-Retrieval Mechanism (Section 4.1) from Modular RAG docs
+            reranked_chunks = rerank_service.rerank_documents(query=query, documents=chunks, top_n=keep_count)
             
             # Apply relevance scoring and filtering
-            # Note: If reranker doesn't provide scores, we'll use retrieval scores
+            # Note: FlashRank provides normalized scores
             high_quality_chunks = []
             for chunk in reranked_chunks:
                 # Get the best available score
                 score = chunk.get('score', chunk.get('retrieval_score', 0.5))
                 
                 # Keep chunks above minimum relevance threshold
-                if score >= min_relevance_score or len(high_quality_chunks) < 2:
-                    # Always keep at least 2 chunks even if below threshold
+                if score >= min_relevance_score:
+                    chunk['final_score'] = score
+                    high_quality_chunks.append(chunk)
+                # Fallback: keep top 2 if they are at least somewhat relevant (e.g. > 0.15)
+                # This prevents showing completely irrelevant docs (0.01 score) for nonsense queries
+                elif len(high_quality_chunks) < 2 and score > 0.15:
                     chunk['final_score'] = score
                     high_quality_chunks.append(chunk)
             
             # Ensure we have enough context - if filtering was too aggressive, add more
+            # But only if they have a modicum of relevance
             if len(high_quality_chunks) < min(3, len(reranked_chunks)):
-                logger.warning(f"Quality filtering too aggressive, adding more chunks for context")
                 for chunk in reranked_chunks:
                     if chunk not in high_quality_chunks:
-                        chunk['final_score'] = chunk.get('score', chunk.get('retrieval_score', 0.3))
-                        high_quality_chunks.append(chunk)
-                        if len(high_quality_chunks) >= 3:
-                            break
+                        # Hard floor check
+                        score = chunk.get('score', 0.0)
+                        if score > 0.15: 
+                            chunk['final_score'] = score
+                            high_quality_chunks.append(chunk)
+                            if len(high_quality_chunks) >= 3:
+                                break
             
             # Cap at reasonable maximum to avoid context overload
             final_chunks = high_quality_chunks[:max(target_count, 8)]
@@ -344,10 +353,21 @@ class RAGService:
             
             # Unified Claude/ChatGPT-style prompt for all response styles
             history_header = f"PREVIOUS CONVERSATION:\n{conversation_context}\n\n" if conversation_context else ""
+            
+            # Define style instructions based on detection
+            style_instruction = ""
+            if actual_style == "detailed":
+                style_instruction = "Provide a comprehensive, detailed answer. elaborate on key points and ensure thorough coverage of the topic."
+            elif actual_style == "concise":
+                style_instruction = "Provide a brief, concise summary. Focus only on the most important facts and avoid unnecessary detail."
+            else:
+                style_instruction = "Balance depth and brevity. Provide enough detail to be helpful but remain direct and to the point."
+
             prompt = f"""
 You are a helpful, expert assistant. Answer the user's question in a clear, natural, and conversational style, just like Claude or ChatGPT. Use well-formatted Markdown for your response.
 
 RESPONSE GUIDELINES:
+- **STYLE: {style_instruction}**
 - Write as if you are having a friendly, professional conversation.
 - Use natural, flowing language and organize information logically.
 - Structure your answer with:
@@ -360,7 +380,6 @@ RESPONSE GUIDELINES:
 - Avoid referencing "the document" or "according to the text"; just provide the information directly.
 - If the context doesn't contain the answer, say: "I don't have information about that specific aspect."
 - Do not speculate or add information beyond what's provided.
-- If the user asks for a detailed answer, be thorough and cover all relevant aspects. If concise, focus on the essentials. Otherwise, balance depth and brevity.
 
 {history_header}AVAILABLE INFORMATION:
 {context}

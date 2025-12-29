@@ -31,6 +31,8 @@ export function useChatSessions() {
     try {
       const session = await chatService.getSession(sessionId);
       setCurrentSession(session);
+      // Note: We don't control selectedDocuments state here, it's in ChatPage.
+      // But we expose currentSession which contains selected_documents.
     } catch (error) {
       console.error('Error loading session:', error);
       showToast({ type: 'error', message: 'Failed to load session' });
@@ -98,12 +100,9 @@ export function useChatSessions() {
         if (mostRecentEmpty) {
           // Reuse the existing empty chat
           setCurrentSessionId(sessionsList[0].session_id);
-        } else if (sessionsList.length === 0) {
-          // Only create a new chat if no sessions exist at all
+        } else {
+          // Create new session if no empty session exists
           await createSession('New Chat');
-        } else if (!currentSessionId) {
-          // If sessions exist but none selected, pick the latest
-          setCurrentSessionId(sessionsList[0].session_id);
         }
       } catch (error) {
         console.error('Error initializing sessions:', error);

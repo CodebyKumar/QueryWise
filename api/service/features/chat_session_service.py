@@ -89,10 +89,11 @@ class ChatSessionService:
             }
             
             # Logic to update title on first user message
-            # Ideally we check message count, but atomic update is harder.
-            # Simple heuristic: if role is user (and we assume it's the first message if usage is "New Chat")
-            # We can run a separate update or just fetch-check-update. atomic push is better for consistency.
-            # For simplicity in Phase 3 migration, we'll do the push. Updating title can be separate or ignored for now.
+            if role == "user":
+                # Fire and forget title update to not block the response
+                # In a real async queue this would be better, but we'll await it for now to ensure it happens
+                # functionality over perf for this specific first-message use case
+                await self.update_session_title_if_needed(session_id, username, content)
             
             result = await collection.update_one(
                 {"session_id": session_id, "username": username},
@@ -148,6 +149,19 @@ class ChatSessionService:
             return result.modified_count > 0
         except Exception as e:
             logger.error(f"Error updating session title: {e}")
+            return False
+
+    async def update_session_documents(self, session_id: str, username: str, documents: List[str]) -> bool:
+        """Update selected documents for a session."""
+        try:
+            collection = await self.get_collection()
+            result = await collection.update_one(
+                {"session_id": session_id, "username": username},
+                {"$set": {"selected_documents": documents, "updated_at": datetime.now().isoformat()}}
+            )
+            return result.modified_count > 0 or result.matched_count > 0
+        except Exception as e:
+            logger.error(f"Error updating session documents: {e}")
             return False
 
 # Singleton instance

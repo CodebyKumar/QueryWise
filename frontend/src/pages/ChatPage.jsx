@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "../components/layout/Header";
+import { chatService } from "../services/chatService";
+import { exportService } from "../services/exportService";
 import { ChatInterface } from "../components/rag/ChatInterface";
 import { ChatSidebar } from "../components/chat/ChatSidebar";
 import { RightSidebar } from "../components/layout/RightSidebar";
@@ -20,6 +22,7 @@ export function ChatPage() {
 
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
+  const [showUploadInSidebar, setShowUploadInSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState(null);
@@ -45,6 +48,15 @@ export function ChatPage() {
     }
   };
 
+  const handleExport = async (format) => {
+    if (!currentSession) return;
+    try {
+      await exportService.exportChatSession(currentSession, currentSession.messages, format);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   const cancelDelete = () => {
     setDeleteConfirmOpen(false);
     setSessionToDelete(null);
@@ -55,9 +67,41 @@ export function ChatPage() {
     refreshSessions();
   };
 
+  // Sync selected documents when session changes
+  useEffect(() => {
+    if (currentSession?.selected_documents) {
+      setSelectedDocuments(currentSession.selected_documents);
+    } else {
+      setSelectedDocuments([]);
+    }
+  }, [currentSession]);
+
+  const handleDocumentSelectionChange = (docs) => {
+    setSelectedDocuments(docs);
+    if (currentSessionId) {
+      // Persist to backend without awaiting
+      chatService.updateSessionDocuments(currentSessionId, docs)
+        .catch(err => console.error("Failed to update session documents", err));
+    }
+  };
+
+  const handleTitleUpdate = async (newTitle) => {
+    if (currentSessionId && newTitle) {
+      try {
+        await chatService.updateSessionTitle(currentSessionId, newTitle);
+        refreshCurrentSession(); // Refresh current session to show new title in header if needed
+        refreshSessions();      // Refresh sidebar list
+      } catch (error) {
+        console.error("Failed to update title:", error);
+      }
+    }
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-white">
-      <Header />
+    <div className="h-screen-safe flex flex-col bg-white">
+      <div className="block">
+        <Header />
+      </div>
 
       {/* Confirmation Dialog */}
       <ConfirmDialog
@@ -92,8 +136,10 @@ export function ChatPage() {
             onDeleteSession={handleDeleteSession}
             onUploadSuccess={handleUploadSuccess}
             selectedDocuments={selectedDocuments}
-            onDocumentSelectionChange={setSelectedDocuments}
+            onDocumentSelectionChange={handleDocumentSelectionChange}
             onClose={() => setShowLeftSidebar(false)}
+            showUpload={showUploadInSidebar}
+            onShowUploadChange={setShowUploadInSidebar}
           />
         </div>
 
@@ -119,7 +165,7 @@ export function ChatPage() {
               </svg>
             </button>
 
-            <div className="flex-1 text-center min-w-0 px-2">
+            <div className="flex-1 min-w-0 px-2 flex justify-center">
               <h1 className="text-sm font-bold text-gray-800 truncate tracking-tight">
                 {currentSession?.title || "New Chat"}
               </h1>
@@ -139,6 +185,25 @@ export function ChatPage() {
                 </button>
               )}
 
+              {/* Export Chat Button */}
+              {currentSession && (
+                <div className="relative group">
+                  <button
+                    className="p-2 text-gray-400 hover:text-orange-600 transition-colors"
+                    aria-label="Export chat"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {/* Dropdown for Export */}
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-1 hidden group-hover:block z-50">
+                    <button onClick={() => handleExport('markdown')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700">Markdown</button>
+                    <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700">PDF</button>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={() => setShowRightSidebar(true)}
                 className="p-2 -mr-2 text-gray-400 hover:text-orange-600 transition-colors"
@@ -154,7 +219,14 @@ export function ChatPage() {
           <ChatInterface
             session={currentSession}
             onSessionUpdate={refreshCurrentSession}
+            onTitleUpdate={handleTitleUpdate}
             selectedDocuments={selectedDocuments}
+            onAttachDocuments={() => {
+              setShowLeftSidebar(true);
+              setShowUploadInSidebar(true);
+            }}
+            onExport={handleExport}
+            onDeleteSession={() => handleDeleteSession(currentSessionId)}
           />
         </div>
 

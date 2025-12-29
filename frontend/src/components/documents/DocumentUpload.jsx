@@ -90,11 +90,21 @@ export function DocumentUpload({ onUploadSuccess, compact = false }) {
           <div className="space-y-2">
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-orange-500 transition-all duration-300"
+                className={`h-full transition-all duration-300 ${stage === 'complete' ? 'bg-green-500' : 'bg-orange-500'}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-xs text-gray-600 text-center">{progress}%</p>
+            <div className="flex justify-between text-xs text-gray-600">
+              <span>
+                {stage === 'reading' && 'Reading...'}
+                {stage === 'extracting' && 'Extracting...'}
+                {stage === 'vectorizing' && 'Embedding...'}
+                {stage === 'storing' && 'Thinking...'}
+                {stage === 'complete' && 'Done!'}
+                {!stage && 'Uploading...'}
+              </span>
+              <span>{progress}%</span>
+            </div>
           </div>
         )}
         <Button

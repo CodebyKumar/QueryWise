@@ -27,7 +27,7 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
   const startRecording = async () => {
     try {
       // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -52,10 +52,10 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
       mediaRecorder.onstop = async () => {
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
-        
+
         // Create blob from chunks
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        
+
         // Send to API
         await processAudio(audioBlob);
       };
@@ -63,7 +63,7 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
       // Start recording
       mediaRecorder.start();
       setIsRecording(true);
-      
+
     } catch (error) {
       console.error('Error accessing microphone:', error);
       if (error.name === 'NotAllowedError') {
@@ -92,7 +92,7 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
       if (transcribedText && transcribedText.trim()) {
         // Call the callback with transcribed text
         onTranscribe?.(transcribedText);
-        
+
         // Auto-submit if callback provided
         if (onAutoSubmit) {
           onAutoSubmit(transcribedText);
@@ -102,9 +102,9 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
       }
     } catch (error) {
       console.error('Error transcribing audio:', error);
-      showToast({ 
-        type: 'error', 
-        message: error.response?.data?.detail || 'Failed to transcribe audio.' 
+      showToast({
+        type: 'error',
+        message: error.response?.data?.detail || 'Failed to transcribe audio.'
       });
     } finally {
       setIsProcessing(false);
@@ -126,9 +126,9 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
       disabled={disabled || isProcessing}
       className={`
         p-2 rounded-md transition-all duration-200
-        ${isRecording 
-          ? 'bg-red-500 text-white animate-pulse hover:bg-red-600' 
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+        ${isRecording
+          ? 'text-red-500 animate-pulse hover:text-red-600'
+          : 'text-gray-400 hover:text-orange-600'
         }
         ${isProcessing ? 'opacity-50 cursor-wait' : ''}
         ${disabled ? 'opacity-40 cursor-not-allowed' : ''}

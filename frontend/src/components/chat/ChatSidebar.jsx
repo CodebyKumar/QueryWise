@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../utils/constants';
 import { DocumentUpload } from '../documents/DocumentUpload';
 import { DocumentSelector } from './DocumentSelector';
 import { Button } from '../common/Button';
@@ -12,9 +14,22 @@ export function ChatSidebar({
   onUploadSuccess,
   selectedDocuments = [],
   onDocumentSelectionChange,
-  onClose
+  onClose,
+  showUpload: externalShowUpload,
+  onShowUploadChange
 }) {
-  const [showUpload, setShowUpload] = useState(false);
+  const [internalShowUpload, setInternalShowUpload] = useState(false);
+  const navigate = useNavigate();
+
+  const showUpload = externalShowUpload !== undefined ? externalShowUpload : internalShowUpload;
+
+  const handleShowUploadChange = (newValue) => {
+    if (onShowUploadChange) {
+      onShowUploadChange(newValue);
+    } else {
+      setInternalShowUpload(newValue);
+    }
+  };
 
   return (
     <div className="w-full bg-white border-r border-gray-200 flex flex-col h-full shadow-sm">
@@ -56,7 +71,7 @@ export function ChatSidebar({
       {/* Upload Section */}
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/30">
         <button
-          onClick={() => setShowUpload(!showUpload)}
+          onClick={() => handleShowUploadChange(!showUpload)}
           className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-white hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-gray-200"
         >
           <span className="flex items-center gap-2">
@@ -80,7 +95,7 @@ export function ChatSidebar({
             <DocumentUpload
               onUploadSuccess={() => {
                 onUploadSuccess?.();
-                setShowUpload(false);
+                handleShowUploadChange(false);
               }}
               compact
             />
@@ -105,9 +120,9 @@ export function ChatSidebar({
             {sessions.map((session) => (
               <div
                 key={session.session_id}
-                className={`group relative rounded-lg cursor-pointer transition-all ${currentSessionId === session.session_id
-                  ? 'bg-orange-50 border-l-4 border-orange-500'
-                  : 'hover:bg-gray-50 border-l-4 border-transparent'
+                className={`group relative rounded-lg cursor-pointer transition-all mx-2 mb-1 ${currentSessionId === session.session_id
+                  ? 'bg-gray-200/60 text-gray-900'
+                  : 'hover:bg-gray-100 text-gray-700 hover:text-gray-900'
                   }`}
                 onClick={() => onSessionSelect(session.session_id)}
               >
@@ -115,8 +130,8 @@ export function ChatSidebar({
                   <div className="flex-1 min-w-0 pr-2">
                     {/* Chat Title */}
                     <p className={`text-sm truncate font-medium leading-tight ${currentSessionId === session.session_id
-                      ? 'text-gray-900'
-                      : 'text-gray-700'
+                      ? 'font-semibold'
+                      : 'font-normal'
                       }`}>
                       {session.title}
                     </p>
@@ -140,6 +155,22 @@ export function ChatSidebar({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Mobile Navigation Links */}
+      <div className="md:hidden p-4 border-t border-gray-200 bg-gray-50 space-y-1">
+
+
+
+        <button
+          onClick={() => navigate(ROUTES.HOME)}
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-white hover:shadow-sm rounded-lg transition-all"
+        >
+          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Back to Home
+        </button>
       </div>
     </div>
   );

@@ -24,5 +24,10 @@ export const chatService = {
   async updateSessionTitle(sessionId, title) {
     const response = await api.patch(`/chat/sessions/${sessionId}/title`, { title });
     return response.data;
+  },
+
+  async updateSessionDocuments(sessionId, documents) {
+    const response = await api.put(`/chat/sessions/${sessionId}/documents`, { documents });
+    return response.data;
   }
 };

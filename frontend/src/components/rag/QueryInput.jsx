@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { VoiceInput } from './VoiceInput';
 
-export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'auto', onResponseStyleChange }) {
+export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'auto', onResponseStyleChange, onAttachClick }) {
   const [query, setQuery] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
@@ -48,12 +48,6 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
     }
   };
 
-  const handleExport = (format) => {
-    if (onExportChat) {
-      onExportChat(format);
-    }
-    setShowExportMenu(false);
-  };
 
   const handleSearch = () => {
     // Placeholder for future search functionality
@@ -107,7 +101,7 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-2 sm:px-4">
+    <div className="w-full px-2 sm:px-4">
       <div className="relative bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300">
         <form onSubmit={handleSubmit}>
           {/* Textarea Area */}
@@ -126,7 +120,22 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
 
           {/* Bottom Action Row */}
           <div className="flex items-center justify-between px-3 pb-2.5">
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1">
+              {/* Document Attachment Button (Mobile/Quick Access) */}
+              <button
+                type="button"
+                onClick={() => onAttachClick && onAttachClick()}
+                disabled={disabled}
+                className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                title="Attach Documents"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+
+              <div className="w-px h-4 bg-gray-200 mx-1"></div>
+
               {/* Style Selector */}
               <div className="relative" ref={styleMenuRef}>
                 <button
@@ -134,23 +143,24 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
                   onClick={() => setShowStyleMenu(!showStyleMenu)}
                   disabled={disabled}
                   className={`
-                    p-2 rounded-lg transition-all flex items-center gap-2
-                    ${showStyleMenu ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}
-                  `}
-                  title={`Style: ${getStyleLabel()}`}
+                      p-1.5 pl-2 pr-3 rounded-full transition-all flex items-center gap-2 border
+                      ${showStyleMenu
+                      ? 'bg-orange-50 border-orange-200 text-orange-700'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-orange-200 hover:text-orange-600'}
+                    `}
+                  title={`Response Style: ${getStyleLabel()}`}
                 >
                   <div className={`
-                    p-1 rounded-md
-                    ${responseStyle === 'auto' ? 'text-slate-600 bg-slate-50' : ''}
-                    ${responseStyle === 'detailed' ? 'text-green-500 bg-green-50' : ''}
-                    ${responseStyle === 'balanced' ? 'text-orange-500 bg-orange-50' : ''}
-                    ${responseStyle === 'concise' ? 'text-purple-500 bg-purple-50' : ''}
-                  `}>
+                      flex items-center justify-center
+                    `}>
                     {getStyleIcon()}
                   </div>
-                  <span className="text-xs font-medium hidden sm:inline-block">
+                  <span className="text-xs font-semibold">
                     {getStyleLabel()}
                   </span>
+                  <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
 
                 {showStyleMenu && (
@@ -193,55 +203,6 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
                 )}
               </div>
 
-              {/* Export Button */}
-              <div className="relative" ref={exportMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  disabled={disabled}
-                  className={`
-                    p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all
-                    ${showExportMenu ? 'bg-gray-100 text-gray-900 border-gray-200' : 'border-transparent'}
-                  `}
-                  title="Export Chat"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                </button>
-
-                {showExportMenu && (
-                  <div className="absolute bottom-full md:bottom-full left-0 mb-2 md:mb-2 w-52 bg-white border border-gray-100 rounded-xl shadow-2xl py-2 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-[60vh] overflow-y-auto">
-                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">
-                      Export Options
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('markdown')}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="p-1.5 bg-blue-50 rounded-lg text-blue-500">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <span className="font-medium">Markdown File</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('pdf')}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="p-1.5 bg-red-50 rounded-lg text-red-500">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <span className="font-medium">PDF Document</span>
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="flex items-center gap-2">

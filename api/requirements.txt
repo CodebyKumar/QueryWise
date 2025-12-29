@@ -22,3 +22,5 @@ markdown>=3.10
 reportlab>=4.0.0
 bs4>=0.0.2
 sarvamai>=0.1.22
+fastembed>=0.2.0
+flashrank>=0.2.0

@@ -242,6 +242,12 @@ class RAGController:
         # 1. Extract text from the uploaded file
         extracted_data = await file_processing_service.extract_text_from_file(file)
 
+        # 1.1 Deduplication Check: Remove existing document with same name
+        existing_docs = await user_documents_service.get_user_documents(user.get('username'))
+        if any(doc.get('filename') == file.filename for doc in existing_docs):
+            logger.info(f"Document '{file.filename}' already exists. Replacing it...")
+            await self.delete_documents([file.filename], user)
+
         # 2. Generate a description using Gemini
         from service.rag.gemini_service import gemini_service
         await gemini_service.initialize_gemini()

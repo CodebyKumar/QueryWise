@@ -146,16 +146,16 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 pt-6 md:pt-4">
-                <div className="max-w-5xl mx-auto space-y-6">
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 pt-6 md:pt-4 pb-32">
+                <div className="max-w-4xl mx-auto space-y-6">
                     {messages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mb-6">
-                                <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Database Assistant</h3>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Database Assistant</h3>
                             <p className="text-sm text-gray-500 max-w-sm mb-8">
                                 Ask natural language questions to query your database. DocuMind will generate and execute SQL for you.
                             </p>
@@ -164,9 +164,9 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
                                     <button
                                         key={index}
                                         onClick={() => handleExampleQuery(example)}
-                                        className="text-left p-4 bg-white hover:bg-orange-50/30 rounded-xl border border-gray-100 shadow-sm hover:shadow transition-all text-sm text-gray-700 group"
+                                        className="text-left p-4 bg-white hover:bg-blue-50/50 rounded-xl border border-gray-100 shadow-sm hover:shadow transition-all text-sm text-gray-700 group"
                                     >
-                                        <span className="text-orange-500 font-bold mr-2 opacity-50 group-hover:opacity-100">?</span>
+                                        <span className="text-blue-500 font-bold mr-2 opacity-50 group-hover:opacity-100">?</span>
                                         "{example}"
                                     </button>
                                 ))}
@@ -178,33 +178,32 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
                         ))
                     )}
                     {isLoading && (
-                        <div className="flex items-center gap-2 text-gray-500">
-                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="text-sm">Generating SQL and executing query...</span>
+                        <div className="flex items-center gap-3 text-gray-500 ml-12">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            <span className="text-xs font-medium ml-2">Generating SQL...</span>
                         </div>
                     )}
                     <div ref={messagesEndRef} />
                 </div>
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-gray-200 bg-white px-4 md:px-8 py-4">
-                <div className="max-w-5xl mx-auto">
-                    <div className="relative bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300">
+            {/* Input Area - Fixed relative to viewport */}
+            <div className="fixed bottom-0 left-0 right-0 z-20 bg-linear-to-t from-white via-white to-transparent px-4 md:px-6 lg:px-8 pb-4 sm:pb-6 pt-10">
+                <div className="max-w-4xl mx-auto">
+                    <div className="relative bg-white border border-gray-200 rounded-[26px] shadow-lg shadow-gray-100/50 hover:shadow-xl transition-all duration-300">
                         <form onSubmit={handleSubmit}>
                             {/* Textarea Area */}
-                            <div className="px-4 pt-2 pb-0.5">
+                            <div className="px-4 pt-3 pb-2">
                                 <textarea
                                     ref={textareaRef}
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder="Ask a question about your database..."
                                     disabled={isLoading}
-                                    className="w-full bg-transparent border-none focus:ring-0 focus:outline-none outline-none text-gray-800 placeholder-gray-400 resize-none text-[14px] leading-snug py-1 max-h-[100px] overflow-y-auto font-sans"
-                                    style={{ minHeight: '32px' }}
+                                    className="w-full bg-transparent border-none focus:ring-0 focus:outline-none outline-none text-gray-800 placeholder-gray-400 resize-none text-[15px] leading-relaxed py-1 max-h-[150px] overflow-y-auto font-sans"
+                                    style={{ minHeight: '44px' }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
@@ -215,12 +214,12 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
                             </div>
 
                             {/* Bottom Action Row */}
-                            <div className="flex items-center justify-between px-3 pb-2.5">
+                            <div className="flex items-center justify-between px-3 pb-2.5 pl-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-orange-100">
-                                        SQL Mode
+                                    <div className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-blue-100">
+                                        SQL
                                     </div>
-                                    <span className="text-[10px] text-gray-400 uppercase tracking-tight">Connected: {activeConnection.databaseType}</span>
+                                    <span className="text-[10px] text-gray-400 font-medium truncate max-w-[150px]">{activeConnection.databaseType}</span>
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -235,15 +234,15 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
                                         type="submit"
                                         disabled={isLoading || !query.trim()}
                                         className={`
-                                            w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300
+                                            w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200
                                             ${query.trim()
-                                                ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-md shadow-orange-200 active:scale-95'
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
                                                 : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                                             }
                                         `}
                                     >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19V5m0 0l-7 7m7-7l7 7" />
+                                        <svg className="w-4 h-4 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 12h16m0 0l-4-4m4 4l-4 4" />
                                         </svg>
                                     </button>
                                 </div>
@@ -261,64 +260,76 @@ function MessageBubble({ message }) {
 
     if (message.type === 'user') {
         return (
-            <div className="flex justify-end mb-4">
-                <div className="bg-orange-600 rounded-2xl rounded-tr-none px-4 py-2.5 max-w-[85%] sm:max-w-xl shadow-sm">
-                    <p className="text-white text-sm leading-relaxed break-words">{message.content}</p>
+            <div className="w-full mb-6 flex justify-end">
+                <div className="bg-gray-100/80 rounded-[20px] rounded-tr-sm px-5 py-2.5 max-w-[85%] sm:max-w-[75%]">
+                    <p className="text-gray-900 text-[15px] leading-relaxed break-words">
+                        {message.content}
+                    </p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-2 mb-6">
-            <div className="bg-white rounded-2xl rounded-tl-none px-5 py-4 border border-gray-100 shadow-sm w-full sm:max-w-[90%] md:max-w-none">
-                {message.success ? (
-                    <>
-                        {/* SQL Display */}
-                        {message.sql && (
-                            <div>
-                                <button
-                                    onClick={() => setShowSQL(!showSQL)}
-                                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                                >
-                                    <svg className={`w-4 h-4 transform transition-transform ${showSQL ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                    Generated SQL
-                                </button>
-                                {showSQL && (
-                                    <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">
-                                        {message.sql}
-                                    </pre>
-                                )}
-                            </div>
-                        )}
+        <div className="w-full mb-10 group">
+            <div className="flex gap-4 w-full">
+                {/* Assistant Icon (Database/System) */}
+                <div className="w-8 h-8 rounded-full bg-blue-50/50 flex items-center justify-center shrink-0 mt-0.5 border border-blue-100">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                </div>
 
-                        {/* Results */}
-                        {message.results && message.results.length > 0 ? (
-                            <QueryResultsTable results={message.results} rowCount={message.rowCount} />
-                        ) : (
-                            <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <div className="flex items-start gap-3">
-                                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <div>
-                                        <p className="text-sm font-medium text-blue-900">No data found</p>
-                                        <p className="text-xs text-blue-700 mt-1">
-                                            The query executed successfully but returned 0 rows. Try adjusting your search criteria.
-                                        </p>
+                <div className="flex-1 min-w-0">
+                    {/* Message Content */}
+                    <div className="prose max-w-none prose-p:text-gray-900 prose-p:leading-relaxed">
+                        {message.success ? (
+                            <>
+                                <p className="mb-3 font-medium text-gray-900">
+                                    {message.content}
+                                </p>
+
+                                {/* SQL Display */}
+                                {message.sql && (
+                                    <div className="mb-4">
+                                        <button
+                                            onClick={() => setShowSQL(!showSQL)}
+                                            className="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors mb-2"
+                                        >
+                                            <svg className={`w-3 h-3 transform transition-transform ${showSQL ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                            {showSQL ? 'Hide SQL' : 'View Generated SQL'}
+                                        </button>
+                                        {showSQL && (
+                                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 overflow-x-auto">
+                                                <code className="text-xs text-gray-800 font-mono">
+                                                    {message.sql}
+                                                </code>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Results */}
+                                {message.results && message.results.length > 0 ? (
+                                    <div className="mt-2 overflow-hidden border border-gray-200 rounded-xl shadow-sm">
+                                        <QueryResultsTable results={message.results} rowCount={message.rowCount} />
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-600">
+                                        No results found for this query.
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="text-red-600 p-3 bg-red-50/50 rounded-lg border border-red-100">
+                                <p className="font-semibold text-sm mb-1">Execution Error</p>
+                                <p className="text-sm">{message.error}</p>
                             </div>
                         )}
-                    </>
-                ) : (
-                    <div className="text-red-600">
-                        <p className="font-medium">Error:</p>
-                        <p className="text-sm mt-1">{message.error}</p>
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
