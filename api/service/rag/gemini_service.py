@@ -11,7 +11,7 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 # Constants for model names
-GENERATIVE_MODEL_NAME = "gemini-1.5-flash"  # A fast and capable model for generation/reranking
+GENERATIVE_MODEL_NAME = "gemini-2.5-flash"  # A fast and capable model for generation/reranking
 
 class GeminiService:
     def __init__(self):
