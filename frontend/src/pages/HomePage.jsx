@@ -9,11 +9,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate(ROUTES.CHAT, { replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+
 
   const handleGetStarted = (e) => {
     e.preventDefault();
@@ -51,36 +47,50 @@ export function HomePage() {
               Upload files and get precise, context-aware answers in seconds.
             </p>
 
-            {/* CTA Form - Improved with separate email input and button */}
-            <form onSubmit={handleGetStarted} className="w-full max-w-lg space-y-4">
-              {/* Email Input */}
-              <div className="p-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-100 focus-within:border-orange-500 focus-within:ring-4 focus-within:ring-orange-500/5 transition-all">
-                <input
-                  type="email"
-                  placeholder="Enter your work email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-6 py-4 bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 font-semibold placeholder-slate-400 rounded-xl"
-                  required
-                />
+            {/* CTA Form / Button - Logic Updated */}
+            {!isAuthenticated ? (
+              <form onSubmit={handleGetStarted} className="w-full max-w-lg space-y-4">
+                {/* Email Input */}
+                <div className="p-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-100 focus-within:border-orange-500 focus-within:ring-4 focus-within:ring-orange-500/5 transition-all">
+                  <input
+                    type="email"
+                    placeholder="Enter your work email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-6 py-4 bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 font-semibold placeholder-slate-400 rounded-xl"
+                    required
+                  />
+                </div>
+
+                {/* Start Free Button */}
+                <button
+                  type="submit"
+                  className="w-full px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all active:scale-95 group flex items-center justify-center gap-2 shadow-xl shadow-slate-200"
+                >
+                  Start Free
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </button>
+
+                <div className="mt-6 flex items-center justify-center gap-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <span className="flex items-center gap-2"><svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> No credit card</span>
+                  <span className="flex items-center gap-2"><svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Instant Setup</span>
+                </div>
+              </form>
+            ) : (
+              <div className="w-full max-w-lg space-y-4">
+                <button
+                  onClick={() => navigate(ROUTES.CHAT)}
+                  className="w-full px-8 py-4 bg-orange-600 text-white font-bold rounded-2xl hover:bg-orange-700 transition-all active:scale-95 group flex items-center justify-center gap-2 shadow-xl shadow-orange-200"
+                >
+                  Go to Chat
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </button>
               </div>
-              
-              {/* Start Free Button - Now separate */}
-              <button
-                type="submit"
-                className="w-full px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all active:scale-95 group flex items-center justify-center gap-2 shadow-xl shadow-slate-200"
-              >
-                Start Free
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </button>
-              
-              <div className="mt-6 flex items-center justify-center gap-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <span className="flex items-center gap-2"><svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> No credit card</span>
-                <span className="flex items-center gap-2"><svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Instant Setup</span>
-              </div>
-            </form>
+            )}
           </div>
         </section>
 
