@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status, UploadFile
 from typing import Dict, Any, Optional, List
+import uuid
 
 from schema.rag_schema import DocumentPayload, QueryRequest, QueryResponse, SourceDocument
 from service.rag.rag_service import rag_service
@@ -315,6 +316,68 @@ class RAGController:
 
         # 4. Reuse the existing indexing logic
         return await self.process_and_index_document(doc_payload, user, file.filename)
+
+    async def process_and_index_document(self, doc_payload: DocumentPayload, user: Dict[str, Any], filename: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Orchestrates the indexing process:
+        1. Run the core RAG indexing module (Chunking -> Embedding -> Pinecone).
+        2. Save document metadata to MongoDB (User Documents) with the generated IDs.
+        """
+        username = user.get('username')
+        
+        # Determine filename if not provided
+        if not filename:
+             filename = doc_payload.metadata.get('source_filename')
+             if not filename:
+                 filename = f"document_{doc_payload.title}_{uuid.uuid4().hex[:8]}.txt"
+        
+        logger.info(f"Processing and indexing document '{filename}' for user '{username}'")
+
+        try:
+            # 1. Prepare data for indexing module
+            indexing_input = {
+                "content": doc_payload.content,
+                "title": doc_payload.title,
+                "metadata": doc_payload.metadata
+            }
+            
+            # 2. Run Indexing Module
+            # This handles chunking, embedding, and storing in Pinecone/Parent Store
+            index_result = await rag_service.indexing_module(indexing_input)
+            
+            chunk_ids = index_result.get("chunk_ids", [])
+            parent_ids = index_result.get("parent_ids", [])
+            
+            if not chunk_ids:
+                 # It's possible indexing failed or content was empty/too short
+                 if len(doc_payload.content.strip()) < 10:
+                      logger.warning(f"Document content too short for indexing: {len(doc_payload.content)} chars")
+                 else:
+                      logger.warning("Indexing returned 0 chunks.")
+                 
+            # 3. Save to User Documents (MongoDB)
+            doc_record = await user_documents_service.add_document(
+                username=username,
+                title=doc_payload.title,
+                filename=filename,
+                chunk_ids=chunk_ids,
+                parent_ids=parent_ids,
+                description=doc_payload.metadata.get("description")
+            )
+            
+            logger.info(f"Document '{filename}' successfully processed and stored for user '{username}'.")
+            
+            return {
+                "message": f"Successfully indexed '{filename}'",
+                "document": doc_record
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing document '{filename}': {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to process document: {str(e)}",
+            )
 
     async def get_indexed_documents(self, user: Dict[str, Any]) -> Dict[str, Any]:
         """
