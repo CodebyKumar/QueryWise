@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { DatabaseProvider } from './context/DatabaseContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
@@ -20,7 +21,8 @@ function App() {
       <BrowserRouter>
         <ToastProvider>
           <AuthProvider>
-            <Routes>
+            <DatabaseProvider>
+              <Routes>
               <Route path={ROUTES.HOME} element={<HomePage />} />
               <Route path={ROUTES.LOGIN} element={<AuthPage />} />
               <Route path={ROUTES.SIGNUP} element={<AuthPage />} />
@@ -73,7 +75,8 @@ function App() {
                 }
               />
               <Route path="*" element={<NotFoundPage />} />
-            </Routes>
+              </Routes>
+            </DatabaseProvider>
           </AuthProvider>
         </ToastProvider>
       </BrowserRouter>

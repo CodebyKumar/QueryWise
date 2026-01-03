@@ -68,7 +68,8 @@ async def get_visualization_metadata(
             detail="Visualization service not initialized"
         )
     
-    result = viz_module.database_visualization_service.get_database_visualization_metadata(
+    # Await the async method
+    result = await viz_module.database_visualization_service.get_database_visualization_metadata(
         connection_id=request.connection_id,
         include_statistics=request.include_statistics,
         max_tables=request.max_tables

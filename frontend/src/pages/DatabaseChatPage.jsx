@@ -5,10 +5,18 @@ import { DatabaseConnectionPanel } from '../components/database/DatabaseConnecti
 import { DatabaseChatInterface } from '../components/database/DatabaseChatInterface';
 import databaseService from '../services/databaseService';
 import { useToast } from '../hooks/useToast';
+import { useDatabase } from '../hooks/useDatabase';
 
 export function DatabaseChatPage() {
-    const [connections, setConnections] = useState([]);
-    const [activeConnectionId, setActiveConnectionId] = useState(null);
+    const {
+        connections,
+        activeConnectionId,
+        activeConnection,
+        setActiveConnectionId,
+        addConnection,
+        removeConnection
+    } = useDatabase();
+    
     const [isConnecting, setIsConnecting] = useState(false);
     const { showToast } = useToast();
     const navigate = useNavigate();
@@ -27,8 +35,7 @@ export function DatabaseChatPage() {
                     createdAt: new Date()
                 };
 
-                setConnections(prev => [...prev, newConnection]);
-                setActiveConnectionId(result.connection_id);
+                addConnection(newConnection);
                 showToast('Database connected successfully', 'success');
             } else {
                 showToast('Failed to connect to database', 'error');
@@ -43,12 +50,7 @@ export function DatabaseChatPage() {
     const handleDisconnect = async (connectionId) => {
         try {
             await databaseService.disconnectDatabase(connectionId);
-            setConnections(prev => prev.filter(conn => conn.id !== connectionId));
-
-            if (activeConnectionId === connectionId) {
-                setActiveConnectionId(null);
-            }
-
+            removeConnection(connectionId);
             showToast('Database disconnected', 'success');
         } catch (error) {
             showToast('Failed to disconnect', 'error');
@@ -74,10 +76,7 @@ export function DatabaseChatPage() {
 
             if (errorMessage.includes('No connection found') || errorMessage.includes('connection')) {
                 // Connection is lost, remove it from state
-                setConnections(prev => prev.filter(conn => conn.id !== connectionId));
-                if (activeConnectionId === connectionId) {
-                    setActiveConnectionId(null);
-                }
+                removeConnection(connectionId);
                 showToast('Connection lost. Please reconnect to the database.', 'error');
                 throw new Error('Connection lost. Please reconnect to the database.');
             }
@@ -87,8 +86,6 @@ export function DatabaseChatPage() {
     };
 
     const [showSidebar, setShowSidebar] = useState(false);
-
-    const activeConnection = connections.find(conn => conn.id === activeConnectionId);
 
     return (
         <div className="h-dvh flex flex-col bg-white overflow-hidden">
@@ -123,7 +120,6 @@ export function DatabaseChatPage() {
                         }}
                         isConnecting={isConnecting}
                         onClose={() => setShowSidebar(false)}
-                        onVisualize={handleVisualize}
                     />
                 </div>
 

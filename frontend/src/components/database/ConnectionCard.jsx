@@ -1,4 +1,4 @@
-export function ConnectionCard({ connection, isActive, onSelect, onDisconnect, onViewSchema, onVisualize }) {
+export function ConnectionCard({ connection, isActive, onSelect, onDisconnect, onViewSchema }) {
     const getDatabaseType = (connectionString) => {
         if (connectionString.startsWith('sqlite')) return 'SQLite';
         if (connectionString.startsWith('postgresql')) return 'PostgreSQL';
@@ -54,33 +54,23 @@ export function ConnectionCard({ connection, isActive, onSelect, onDisconnect, o
                 </div>
             </div>
 
-            {/* Action buttons grid */}
-            <div className="grid grid-cols-2 gap-2 mt-3">
+            {/* Action buttons */}
+            <div className="flex gap-2 mt-3">
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onViewSchema(connection.id);
                     }}
-                    className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    className="flex-1 px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
                 >
-                    Schema
-                </button>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onVisualize(connection.id, dbType);
-                    }}
-                    className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded transition-colors"
-                    title="Open database visualizations"
-                >
-                    📊 Visualize
+                    View Schema
                 </button>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onDisconnect(connection.id);
                     }}
-                    className="col-span-2 px-2 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                    className="flex-1 px-2 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors"
                 >
                     Disconnect
                 </button>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { QueryResultsTable } from './QueryResultsTable';
 import { VoiceInput } from '../rag/VoiceInput';
 
@@ -8,6 +9,7 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+    const navigate = useNavigate();
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,6 +24,12 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
         setMessages([]);
         setQuery('');
     }, [activeConnection?.id]);
+
+    const handleVisualize = () => {
+        if (activeConnection) {
+            navigate(`/database-visualization?connectionId=${activeConnection.id}&databaseType=${activeConnection.databaseType}`);
+        }
+    };
 
     const exampleQueries = [
         "Show me all records from the primary table",
@@ -115,7 +123,7 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
     return (
         <div className="h-full flex flex-col bg-white">
             {/* Desktop Header - Hidden on mobile */}
-            <div className="hidden md:block bg-white border-b border-gray-200 p-4">
+            <div className="hidden md:block bg-white border-b border-gray-200 px-4 py-3">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-lg font-bold text-gray-900">Database Chat</h2>
@@ -123,17 +131,62 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
                             Connected to: <span className="font-medium">{activeConnection.databaseType}</span>
                         </p>
                     </div>
+                    <div className="flex items-center gap-3">
+                        {/* Visualize Button - Primary Action */}
+                        <button
+                            onClick={handleVisualize}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                            title="Open database visualization"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            📊 Visualize Database
+                        </button>
+                        {/* Clear Chat Button - Secondary Action */}
+                        <button
+                            onClick={() => setMessages([])}
+                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+                            title="Clear chat history"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Clear Chat
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile Header */}
+            <div className="md:hidden bg-white border-b border-gray-100 px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-sm font-bold text-gray-900 truncate">Database Chat</h2>
+                        <p className="text-xs text-gray-500 truncate">
+                            {activeConnection.databaseType}
+                        </p>
+                    </div>
                     <button
                         onClick={() => setMessages([])}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
-                        title="Clear chat history"
+                        className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                        title="Clear chat"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        Clear Chat
                     </button>
                 </div>
+                {/* Visualize Button - Full Width on Mobile */}
+                <button
+                    onClick={handleVisualize}
+                    className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    📊 Visualize Database
+                </button>
             </div>
 
             {/* Messages Area */}

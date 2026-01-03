@@ -20,16 +20,21 @@ import { Chart } from '../components/database/Chart';
 import { CustomVisualizationBuilder } from '../components/database/CustomVisualizationBuilder';
 import visualizationService from '../services/visualizationService';
 import { useToast } from '../hooks/useToast';
+import { useDatabase } from '../hooks/useDatabase';
 import { ArrowLeft, BarChart3, Table, TrendingUp, RefreshCw, Database } from 'lucide-react';
 import { formatNumber } from '../utils/formatters';
 
 export function DatabaseVisualizationPage() {
     const [searchParams] = useSearchParams();
-    const connectionId = searchParams.get('connectionId');
+    const connectionIdFromUrl = searchParams.get('connectionId');
     const databaseType = searchParams.get('databaseType') || 'database';
     
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { activeConnection, activeConnectionId } = useDatabase();
+    
+    // Use connection from context if available, fallback to URL param
+    const connectionId = activeConnectionId || connectionIdFromUrl;
 
     const [loading, setLoading] = useState(true);
     const [metadata, setMetadata] = useState(null);

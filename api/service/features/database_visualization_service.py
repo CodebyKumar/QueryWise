@@ -9,12 +9,21 @@ Design principles:
 2. NO Supabase-specific logic
 3. Safe, deterministic SQL only (no LLM-generated queries)
 4. Rule-based chart generation (no guessing joins/relationships)
+
+Performance optimizations:
+- Uses ThreadPoolExecutor to process tables in parallel
+- Batches all statistics queries per table into single SQL statement
+- Moves blocking DB I/O off async event loop using run_in_executor
+- Thread-safe session handling per worker thread
 """
 
 from sqlalchemy import text, inspect
 from sqlalchemy.engine import Engine
 from typing import List, Dict, Any, Optional, Tuple
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 
 from schema.visualization_schema import (
     TableMetadata,
@@ -29,6 +38,10 @@ from schema.visualization_schema import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for parallel table processing
+# SQLAlchemy engines are thread-safe by default (connection pooling)
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="db_viz_worker")
 
 
 class DatabaseVisualizationService:
@@ -128,53 +141,177 @@ class DatabaseVisualizationService:
             logger.warning(f"Failed to get row count for {table_name}: {str(e)}")
             return 0
     
-    def _get_numeric_stats(
+    def _process_single_table(
+        self,
+        engine: Engine,
+        table_name: str,
+        inspector,
+        include_statistics: bool
+    ) -> Tuple[Optional[TableMetadata], Optional[TableStatistics], int]:
+        """
+        Process a single table to extract metadata and statistics.
+        
+        This function runs in a worker thread for parallel processing.
+        Each thread gets its own DB connection from the engine's connection pool.
+        
+        Args:
+            engine: SQLAlchemy engine (thread-safe)
+            table_name: Name of the table to process
+            inspector: SQLAlchemy inspector (cached, thread-safe for reads)
+            include_statistics: Whether to compute numeric statistics
+            
+        Returns:
+            Tuple of (TableMetadata, TableStatistics or None, row_count)
+        """
+        try:
+            logger.info(f"[Worker Thread] Processing table: {table_name}")
+            
+            # Get row count
+            row_count = self._get_row_count(engine, table_name)
+            
+            # Get columns metadata
+            columns_info = inspector.get_columns(table_name)
+            pk_constraint = inspector.get_pk_constraint(table_name)
+            fks = inspector.get_foreign_keys(table_name)
+            
+            primary_keys = pk_constraint.get('constrained_columns', []) if pk_constraint else []
+            foreign_key_columns = set()
+            for fk in fks:
+                foreign_key_columns.update(fk.get('constrained_columns', []))
+            
+            # Build column metadata
+            columns: List[ColumnMetadata] = []
+            numeric_columns = []
+            timestamp_columns = []
+            text_columns = []
+            
+            for col in columns_info:
+                col_name = col['name']
+                sql_type = str(col['type'])
+                category = self._categorize_column_type(sql_type)
+                
+                column_meta = ColumnMetadata(
+                    name=col_name,
+                    data_type=sql_type,
+                    category=category,
+                    nullable=col.get('nullable', True),
+                    is_primary_key=col_name in primary_keys,
+                    is_foreign_key=col_name in foreign_key_columns
+                )
+                columns.append(column_meta)
+                
+                # Categorize for easy access (skip ID columns for visualization)
+                if not self._is_id_column(col_name):
+                    if category == ColumnDataType.NUMERIC:
+                        numeric_columns.append(col_name)
+                    elif category == ColumnDataType.TIMESTAMP:
+                        timestamp_columns.append(col_name)
+                    elif category == ColumnDataType.TEXT:
+                        text_columns.append(col_name)
+            
+            # Create table metadata
+            table_meta = TableMetadata(
+                table_name=table_name,
+                row_count=row_count,
+                columns=columns,
+                numeric_columns=numeric_columns,
+                timestamp_columns=timestamp_columns,
+                text_columns=text_columns,
+                primary_keys=primary_keys
+            )
+            
+            # Get statistics if requested (using batched query)
+            table_stats = None
+            if include_statistics and numeric_columns:
+                numeric_stats = self._get_table_statistics(engine, table_name, numeric_columns)
+                if numeric_stats:
+                    table_stats = TableStatistics(
+                        table_name=table_name,
+                        row_count=row_count,
+                        numeric_stats=numeric_stats
+                    )
+            
+            return table_meta, table_stats, row_count
+            
+        except Exception as e:
+            logger.error(f"[Worker Thread] Failed to process table {table_name}: {str(e)}")
+            return None, None, 0
+    
+    def _get_table_statistics(
         self, 
         engine: Engine, 
         table_name: str, 
-        column_name: str
-    ) -> Optional[NumericColumnStats]:
+        numeric_columns: List[str]
+    ) -> List[NumericColumnStats]:
         """
-        Get statistics for a numeric column using safe aggregation functions.
+        Get statistics for ALL numeric columns in a single batched query.
+        
+        Performance improvement: Instead of N separate queries (one per column),
+        we execute a single query with all aggregations. This dramatically reduces
+        the N+1 query problem.
         
         Args:
             engine: SQLAlchemy engine
             table_name: Name of the table
-            column_name: Name of the numeric column
+            numeric_columns: List of numeric column names (limited to first 5 for performance)
             
         Returns:
-            NumericColumnStats or None if failed
+            List of NumericColumnStats
         """
+        if not numeric_columns:
+            return []
+        
         try:
-            # Use standard SQL aggregate functions (safe, deterministic)
+            # Limit to first 5 numeric columns to avoid excessively long queries
+            columns_to_process = numeric_columns[:5]
+            
+            # Build a single SELECT with all aggregate functions for all columns
+            # This executes in one DB round-trip instead of N trips
+            select_parts = []
+            for col_name in columns_to_process:
+                # Each column gets: COUNT, MIN, MAX, AVG, SUM
+                select_parts.append(f'''
+                    COUNT("{col_name}") as "{col_name}_count",
+                    MIN("{col_name}") as "{col_name}_min",
+                    MAX("{col_name}") as "{col_name}_max",
+                    AVG("{col_name}") as "{col_name}_avg",
+                    SUM("{col_name}") as "{col_name}_sum"
+                '''.strip())
+            
+            query = text(f'''
+                SELECT {", ".join(select_parts)}
+                FROM "{table_name}"
+            ''')
+            
+            # Execute single batched query
             with engine.connect() as conn:
-                query = text(f'''
-                    SELECT 
-                        COUNT("{column_name}") as count,
-                        MIN("{column_name}") as min_val,
-                        MAX("{column_name}") as max_val,
-                        AVG("{column_name}") as avg_val,
-                        SUM("{column_name}") as sum_val
-                    FROM "{table_name}"
-                ''')
                 result = conn.execute(query)
                 row = result.fetchone()
                 
-                if row:
-                    return NumericColumnStats(
-                        column_name=column_name,
-                        count=row[0] or 0,
-                        min_value=float(row[1]) if row[1] is not None else None,
-                        max_value=float(row[2]) if row[2] is not None else None,
-                        avg_value=float(row[3]) if row[3] is not None else None,
-                        sum_value=float(row[4]) if row[4] is not None else None
-                    )
+                if not row:
+                    return []
+                
+                # Parse results into NumericColumnStats objects
+                stats_list = []
+                for idx, col_name in enumerate(columns_to_process):
+                    # Results are in groups of 5: count, min, max, avg, sum
+                    base_idx = idx * 5
+                    stats_list.append(NumericColumnStats(
+                        column_name=col_name,
+                        count=row[base_idx] or 0,
+                        min_value=float(row[base_idx + 1]) if row[base_idx + 1] is not None else None,
+                        max_value=float(row[base_idx + 2]) if row[base_idx + 2] is not None else None,
+                        avg_value=float(row[base_idx + 3]) if row[base_idx + 3] is not None else None,
+                        sum_value=float(row[base_idx + 4]) if row[base_idx + 4] is not None else None
+                    ))
+                
+                return stats_list
+                
         except Exception as e:
-            logger.warning(f"Failed to get stats for {table_name}.{column_name}: {str(e)}")
-        
-        return None
+            logger.warning(f"Failed to get batched stats for {table_name}: {str(e)}")
+            return []
     
-    def get_database_visualization_metadata(
+    async def get_database_visualization_metadata(
         self,
         connection_id: str,
         include_statistics: bool = True,
@@ -182,6 +319,12 @@ class DatabaseVisualizationService:
     ) -> DatabaseVisualizationResponse:
         """
         Extract comprehensive visualization metadata from connected database.
+        
+        PERFORMANCE OPTIMIZATIONS:
+        1. Async/await: Moves blocking DB I/O off the event loop
+        2. Parallel processing: Uses ThreadPoolExecutor to process multiple tables concurrently
+        3. Batched queries: Single query per table for all numeric statistics (eliminates N+1)
+        4. Thread-safe: SQLAlchemy engine pool handles concurrent connections safely
         
         This is the main entry point for database visualization.
         Works with any SQL database connection.
@@ -208,6 +351,7 @@ class DatabaseVisualizationService:
                     error="Connection not found"
                 )
             
+            # Get inspector (cached, thread-safe for reads)
             inspector = inspect(engine)
             database_type = engine.dialect.name
             
@@ -218,86 +362,51 @@ class DatabaseVisualizationService:
             if max_tables:
                 table_names = table_names[:max_tables]
             
+            logger.info(f"Processing {len(table_names)} tables in parallel...")
+            
+            # Process tables in parallel using ThreadPoolExecutor
+            # This moves blocking DB I/O off the async event loop
+            loop = asyncio.get_event_loop()
+            
+            # Submit all table processing tasks to thread pool
+            futures = []
+            for table_name in table_names:
+                # Use partial to create callable with all arguments bound
+                task = partial(
+                    self._process_single_table,
+                    engine,
+                    table_name,
+                    inspector,
+                    include_statistics
+                )
+                # run_in_executor moves blocking work to thread pool
+                future = loop.run_in_executor(_executor, task)
+                futures.append(future)
+            
+            # Wait for all futures to complete
+            # This allows tables to be processed concurrently
+            results = await asyncio.gather(*futures, return_exceptions=True)
+            
+            # Collect results
             tables_metadata: List[TableMetadata] = []
             statistics: List[TableStatistics] = []
             total_rows = 0
             
-            # Process each table
-            for table_name in table_names:
-                logger.info(f"Processing table: {table_name}")
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"Table processing failed: {str(result)}")
+                    continue
                 
-                # Get row count
-                row_count = self._get_row_count(engine, table_name)
-                total_rows += row_count
+                table_meta, table_stats, row_count = result
                 
-                # Get columns
-                columns_info = inspector.get_columns(table_name)
-                pk_constraint = inspector.get_pk_constraint(table_name)
-                fks = inspector.get_foreign_keys(table_name)
+                if table_meta:
+                    tables_metadata.append(table_meta)
+                    total_rows += row_count
                 
-                primary_keys = pk_constraint.get('constrained_columns', []) if pk_constraint else []
-                foreign_key_columns = set()
-                for fk in fks:
-                    foreign_key_columns.update(fk.get('constrained_columns', []))
-                
-                # Build column metadata
-                columns: List[ColumnMetadata] = []
-                numeric_columns = []
-                timestamp_columns = []
-                text_columns = []
-                
-                for col in columns_info:
-                    col_name = col['name']
-                    sql_type = str(col['type'])
-                    category = self._categorize_column_type(sql_type)
-                    
-                    column_meta = ColumnMetadata(
-                        name=col_name,
-                        data_type=sql_type,
-                        category=category,
-                        nullable=col.get('nullable', True),
-                        is_primary_key=col_name in primary_keys,
-                        is_foreign_key=col_name in foreign_key_columns
-                    )
-                    columns.append(column_meta)
-                    
-                    # Categorize for easy access
-                    # Skip ID columns for visualization
-                    if not self._is_id_column(col_name):
-                        if category == ColumnDataType.NUMERIC:
-                            numeric_columns.append(col_name)
-                        elif category == ColumnDataType.TIMESTAMP:
-                            timestamp_columns.append(col_name)
-                        elif category == ColumnDataType.TEXT:
-                            text_columns.append(col_name)
-                
-                # Create table metadata
-                table_meta = TableMetadata(
-                    table_name=table_name,
-                    row_count=row_count,
-                    columns=columns,
-                    numeric_columns=numeric_columns,
-                    timestamp_columns=timestamp_columns,
-                    text_columns=text_columns,
-                    primary_keys=primary_keys
-                )
-                tables_metadata.append(table_meta)
-                
-                # Get statistics if requested
-                if include_statistics and numeric_columns:
-                    numeric_stats = []
-                    # Limit to first 5 numeric columns to avoid performance issues
-                    for col_name in numeric_columns[:5]:
-                        stats = self._get_numeric_stats(engine, table_name, col_name)
-                        if stats:
-                            numeric_stats.append(stats)
-                    
-                    if numeric_stats:
-                        statistics.append(TableStatistics(
-                            table_name=table_name,
-                            row_count=row_count,
-                            numeric_stats=numeric_stats
-                        ))
+                if table_stats:
+                    statistics.append(table_stats)
+            
+            logger.info(f"Parallel processing complete: {len(tables_metadata)} tables processed")
             
             # Generate suggested charts using rule-based logic
             suggested_charts = self._generate_suggested_charts(
