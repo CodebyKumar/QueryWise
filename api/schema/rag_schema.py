@@ -21,6 +21,7 @@ class SourceDocument(BaseModel):
     content: str
     title: Optional[str] = None
     score: Optional[float] = None
+    retrieval_score: Optional[float] = None
 
 class QueryResponse(BaseModel):
     """Schema for the final RAG response."""

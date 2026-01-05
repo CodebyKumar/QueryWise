@@ -316,6 +316,7 @@ export function ChatPage() {
                 }}
                 onExport={handleExport}
                 onDeleteSession={() => handleDeleteSession(currentSessionId)}
+                onCreateSession={createSession}
               />
             </div>
 

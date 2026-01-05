@@ -15,7 +15,10 @@ export function useChatSessions() {
   const loadSessions = async () => {
     try {
       const data = await chatService.getSessions();
-      setSessions(data.sessions || []);
+      const fetchedSessions = data.sessions || [];
+      // Enforce strict reverse chronological order
+      fetchedSessions.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      setSessions(fetchedSessions);
 
       // If no current session and sessions exist, select the first one
       if (!currentSessionId && data.sessions && data.sessions.length > 0) {
@@ -110,19 +113,19 @@ export function useChatSessions() {
           }
         }
 
-        // Priority 2: Reuse empty session or create new one
+        // Priority 2: Reuse empty session or start in "New Chat" mode (virtual)
         if (sessionsList.length > 0) {
           const mostRecent = sessionsList[0];
-          // If the most recent session has messages, create a new one
+          // If the most recent session has messages, start a fresh VIRTUAL session
           if (mostRecent.messages && mostRecent.messages.length > 0) {
-            await createSession();
+            setCurrentSessionId(null);
           } else {
-            // If it's empty, reuse it
+            // If the latest session is actually empty, we can reuse it to reduce clutter
             setCurrentSessionId(mostRecent.session_id);
           }
         } else {
-          // No sessions exist, create first one
-          await createSession();
+          // No sessions exist, start in virtual mode
+          setCurrentSessionId(null);
         }
       } catch (error) {
         console.error('Error initializing sessions:', error);

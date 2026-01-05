@@ -1,4 +1,8 @@
 import logging
+import os
+
+# Disable tokenizers parallelism to avoid deadlocks/warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

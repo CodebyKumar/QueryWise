@@ -9,10 +9,15 @@ from fastapi import UploadFile, HTTPException, status
 from pypdf import PdfReader
 import logging
 
-import logging
 import re
 
+import logging
+
 logger = logging.getLogger(__name__)
+
+# Regex to find URLs that are NOT already in Markdown link format
+# Negative lookbehind (?<!\]\() ensures we don't match (http...) part of existing [text](http...)
+URL_PATTERN = re.compile(r'(?<!\]\()(https?://[^\s<>"]+|www\.[^\s<>"]+)')
 
 class FileProcessingService:
     """A service dedicated to extracting text content from various file formats."""
@@ -46,6 +51,9 @@ class FileProcessingService:
             # Use the filename (without extension) as the default title
             title = Path(filename).stem
             
+            # Post-process: ensure all links are properly formatted for RAG
+            text = self._post_process_text(text)
+
             return {"title": title, "content": text}
 
         except Exception as e:
@@ -54,6 +62,25 @@ class FileProcessingService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to process file: {filename}. Error: {str(e)}",
             )
+
+    def _post_process_text(self, text: str) -> str:
+        """
+        Global clean-up and formatting for extracted text.
+        Specifically ensures all plain URLs are converted to Markdown links.
+        """
+        if not text:
+            return ""
+        
+        # Function to replace matched URL with markdown format
+        def replace_link(match):
+            url = match.group(0)
+            # Ensure protocol for www links
+            href = url if url.startswith('http') else f'https://{url}'
+            return f'[{url}]({href})'
+
+        # Apply regex to linkify plain URLs
+        text = URL_PATTERN.sub(replace_link, text)
+        return text
 
     def _resolve_pdf_object(self, obj):
         """Resolves indirect objects to their actual value."""
@@ -107,47 +134,88 @@ class FileProcessingService:
         return "\n".join(full_text)
 
     def _extract_from_docx(self, contents: bytes) -> str:
-        """Extracts text from DOCX file contents, including embedded links."""
+        """Extracts text from DOCX file contents, including embedded links and TABLES as Markdown."""
         from docx import Document as DocxDocument
-        from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        from docx.document import Document
+        from docx.table import Table
+        from docx.text.paragraph import Paragraph
         
         with io.BytesIO(contents) as docx_file:
             doc = DocxDocument(docx_file)
             full_text = []
 
-            # 1. Iterate paragraphs to find text and hyperlinks
-            for para in doc.paragraphs:
+            # Use iter_inner_content to process elements (Paragraphs and Tables) in order
+            # Note: iter_inner_content() is not standard in all python-docx versions using Document object directly
+            # We iterate through the body elements directly
+            for element in doc.element.body:
+                if element.tag.endswith('p'):  # Paragraph
+                    # Find the paragraph object corresponding to this element
+                    # We have to search for it or wrap it
+                    # Optimization: It's faster to just iterate paragraphs and tables if order wasn't critical
+                    # But order IS critical.
+                    
+                    # Alternative safer approach: Iterate doc.iter_inner_content() if available, 
+                    # but since it might not be, we'll try a simpler approach of iterating paragraphs and tables 
+                    # based on their xml order.
+                    pass
+            
+            # SIMPLER ROBUST APPROACH:
+            # We will use the fact that doc.paragraphs and doc.tables are separate lists.
+            # But we want combined order.
+            # reliable way: iterate over doc.element.body and match with objects.
+            
+            def get_markdown_table(table):
+                md_lines = []
+                # extracting headers (assuming first row is header)
+                if not table.rows: 
+                    return ""
+                    
+                headers = [cell.text.strip() for cell in table.rows[0].cells]
+                md_lines.append("| " + " | ".join(headers) + " |")
+                md_lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+                
+                for row in table.rows[1:]:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    md_lines.append("| " + " | ".join(cells) + " |")
+                    
+                return "\n" + "\n".join(md_lines) + "\n"
+
+            # Helper to extract text+links from a paragraph object
+            def get_para_text(para):
                 para_text = ""
-                # We need to access the XML to find hyperlinks
-                # python-docx doesn't provide a direct way to iterate runs AND hyperlinks in order
-                # So we iterate the children of the paragraph element
                 for child in para._element:
                     if child.tag.endswith('r'): # Run
-                        if child.text:
-                           para_text += child.text
+                        if child.text: para_text += child.text
                     elif child.tag.endswith('hyperlink'): # Hyperlink
-                         # Extract relationship ID
                         r_id = child.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
                         if r_id:
                             try:
                                 rel = doc.part.rels[r_id]
                                 if rel.target_mode == 'External':
                                     url = rel.target_ref
-                                    # Extract display text from the hyperlink tag's children runs
-                                    display_text = ""
-                                    for subchild in child:
-                                        if subchild.tag.endswith('r'):
-                                            if subchild.text:
+                                    if url:
+                                        display_text = ""
+                                        for subchild in child:
+                                            if subchild.tag.endswith('r') and subchild.text:
                                                 display_text += subchild.text
-                                    
-                                    # Format as Markdown link
-                                    para_text += f" [{display_text}]({url}) "
-                            except Exception:
-                                pass # Skip if relationship not found
+                                        para_text += f" [{display_text}]({url}) "
+                            except Exception: pass
+                return para_text.strip()
+
+            # Main iteration over document body elements
+            for child in doc.element.body:
+                if child.tag.endswith('p'):
+                    # Create a Paragraph object from the element
+                    para = Paragraph(child, doc)
+                    text = get_para_text(para)
+                    if text: full_text.append(text)
                 
-                if para_text.strip():
-                    full_text.append(para_text)
-                    
+                elif child.tag.endswith('tbl'):
+                    # Create a Table object from the element
+                    table = Table(child, doc)
+                    table_md = get_markdown_table(table)
+                    if table_md: full_text.append(table_md)
+
         return "\n".join(full_text)
 
     def _extract_from_html(self, contents: bytes) -> str:

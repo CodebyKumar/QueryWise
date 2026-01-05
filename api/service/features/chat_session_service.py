@@ -122,7 +122,7 @@ class ChatSessionService:
                 if new_title and new_title != "New Chat":
                     await collection.update_one(
                         {"session_id": session_id},
-                        {"$set": {"title": new_title}}
+                        {"$set": {"title": new_title, "updated_at": datetime.now().isoformat()}}
                     )
                     logger.info(f"Auto-named session {session_id} to '{new_title}'")
         except Exception as e:

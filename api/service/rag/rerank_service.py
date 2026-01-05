@@ -23,11 +23,11 @@ class RerankService:
             return
             
         try:
-            logger.info("Initializing FlashRank Service (ms-marco-TinyBERT-L-2-v2)...")
-            # Uses a small, efficient model (~40MB)
-            self.ranker = Ranker(model_name="ms-marco-TinyBERT-L-2-v2", cache_dir=".cache/flashrank")
+            logger.info("Initializing FlashRank Service (ms-marco-MiniLM-L-12-v2)...")
+            # Uses MiniLM - better accuracy/reliability trade-off than TinyBERT, still very fast
+            self.ranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2", cache_dir=".cache/flashrank")
             self.initialized = True
-            logger.info("FlashRank Service initialized successfully.")
+            logger.info("FlashRank Service (MiniLM) initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize FlashRank Service: {e}")
             self.ranker = None
@@ -79,6 +79,15 @@ class RerankService:
                     doc = documents[original_idx].copy()
                     # Add normalized score
                     score = res.get('score', 0.0)
+                    
+                    # Sanity check: FlashRank occasionally returns 0 for very short or oddly formatted text
+                    # If 0, fallback to the original retrieval score to ensure we don't drop relevant chunks
+                    if score <= 0.0001:
+                        # Use retrieval_score (from vector DB) or a small fallback
+                        fallback_score = doc.get('retrieval_score', 0.1)
+                        logger.warning(f"RERANK: Score was {score} for doc {doc_id}, falling back to {fallback_score}")
+                        score = fallback_score
+                        
                     doc['score'] = score
                     reranked_docs.append(doc)
             

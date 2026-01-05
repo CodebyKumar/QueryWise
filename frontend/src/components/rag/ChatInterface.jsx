@@ -15,7 +15,7 @@ export function ChatInterface({
   onAttachDocuments,
   onExport,
   onDeleteSession,
-
+  onCreateSession,
 }) {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,8 +45,11 @@ export function ChatInterface({
         setMessages(session.messages || []);
       }
     } else {
-      setCurrentSessionId(null);
-      setMessages([]);
+      // Virtual session state - clear messages if we switched to "New Chat"
+      if (currentSessionId !== null) {
+        setCurrentSessionId(null);
+        setMessages([]);
+      }
     }
   }, [session, currentSessionId]);
 
@@ -55,20 +58,40 @@ export function ChatInterface({
   }, [messages, isLoading]);
 
   const handleSendMessage = async (query) => {
-    let activeSession = session;
-
-    if (!activeSession) {
-      showToast({ type: "error", message: "Please create or select a chat session first" });
-      return;
-    }
-
     if (!validDocs || validDocs.length === 0) {
       showToast({ type: "warning", message: "Please select at least one valid document from the sidebar to chat with" });
       return;
     }
+
+    // Optimistic UI Update: Show message immediately
     const userMessage = { role: "user", content: query, timestamp: new Date().toISOString() };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+
+    let activeSession = session;
+
+    // Lazy Creation Logic
+    if (!activeSession) {
+      if (!onCreateSession) {
+        showToast({ type: "error", message: "Session creation unavailable" });
+        setIsLoading(false); // Reset loading if we can't create
+        setMessages((prev) => prev.slice(0, -1)); // Remove the optimistic message
+        return;
+      }
+      try {
+        // Create the session ON FIRST MESSAGE
+        activeSession = await onCreateSession("New Chat");
+        if (!activeSession) throw new Error("Failed to create session");
+        // Update local state immediately to prevent race conditions
+        setCurrentSessionId(activeSession.session_id);
+      } catch (error) {
+        console.error("Failed to create lazy session:", error);
+        showToast({ type: "error", message: "Failed to start new chat" });
+        setIsLoading(false); // Reset loading
+        setMessages((prev) => prev.slice(0, -1)); // Remove the optimistic message
+        return;
+      }
+    }
 
     try {
       // Use validDocs.map(d => d.filename) to only send existing documents
@@ -96,7 +119,7 @@ export function ChatInterface({
   };
 
   const handleRegenerate = async () => {
-    if (isLoading || messages.length === 0) return;
+    if (isLoading || messages.length === 0 || !session) return;
 
     // Find the last user message to re-send
     const lastUserMsgIndex = messages.findLastIndex(m => m.role === 'user');
@@ -234,17 +257,8 @@ export function ChatInterface({
 
       {/* Messages Area - Increased bottom padding to prevent overlap with fixed input */}
       <div className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-4 pt-24 md:pt-4 pb-48 scroll-smooth relative">
-        {!session ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No chat selected</h3>
-            <p className="text-gray-600 max-w-md">Create a new chat or select an existing one.</p>
-          </div>
-        ) : messages.length === 0 ? (
+        {/* Render "Empty State" if no session OR if session has no messages */}
+        {(!session || messages.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full max-w-4xl mx-auto px-4 animate-in fade-in duration-500">
             <div className="text-center mb-8 w-full">
               <h2 className="text-4xl font-bold text-gray-900 mb-3 tracking-tight">
@@ -256,7 +270,7 @@ export function ChatInterface({
             <div className="w-full">
               <QueryInput
                 onSend={handleSendMessage}
-                disabled={isLoading || !session}
+                disabled={isLoading}
                 responseStyle={responseStyle}
                 onResponseStyleChange={setResponseStyle}
                 onAttachClick={onAttachDocuments}
@@ -308,7 +322,7 @@ export function ChatInterface({
           <div className="max-w-4xl mx-auto">
             <QueryInput
               onSend={handleSendMessage}
-              disabled={isLoading || !session}
+              disabled={isLoading}
               responseStyle={responseStyle}
               onResponseStyleChange={setResponseStyle}
               onAttachClick={onAttachDocuments}

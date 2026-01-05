@@ -224,7 +224,8 @@ class RAGController:
                         id=chunk.get('id', 'unknown_id'),
                         content=metadata.get('content', ''),
                         title=metadata.get('title'),
-                        score=chunk.get('score')
+                        score=float(chunk.get('final_score', chunk.get('score', 0.0))),
+                        retrieval_score=float(chunk.get('retrieval_score', 0.0))
                     ))
             elif user_docs:
                 # Fallback: If no chunks were used but we had documents (and presumably used their descriptions),
@@ -335,6 +336,9 @@ class RAGController:
 
         try:
             # 1. Prepare data for indexing module
+            # CRITICAL: Inject username into metadata for multi-tenant isolation
+            doc_payload.metadata["username"] = username
+            
             indexing_input = {
                 "content": doc_payload.content,
                 "title": doc_payload.title,

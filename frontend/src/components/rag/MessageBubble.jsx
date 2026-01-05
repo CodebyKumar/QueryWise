@@ -126,7 +126,35 @@ export function MessageBubble(props) {
               remarkPlugins={[remarkGfm]}
               components={{
                 a: ({ node, ...props }) => (
-                  <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all" />
+                  <a
+                    {...props}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="!text-blue-600 !underline hover:!text-blue-800 break-all !cursor-pointer font-medium relative z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  />
+                ),
+                table: ({ node, ...props }) => (
+                  <div className="overflow-x-auto my-4 rounded-lg border border-gray-200">
+                    <table {...props} className="min-w-full divide-y divide-gray-200" />
+                  </div>
+                ),
+                thead: ({ node, ...props }) => (
+                  <thead {...props} className="bg-gray-50" />
+                ),
+                tbody: ({ node, ...props }) => (
+                  <tbody {...props} className="divide-y divide-gray-200 bg-white" />
+                ),
+                tr: ({ node, ...props }) => (
+                  <tr {...props} />
+                ),
+                th: ({ node, ...props }) => (
+                  <th {...props} className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" />
+                ),
+                td: ({ node, ...props }) => (
+                  <td {...props} className="px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap" />
                 )
               }}
             >

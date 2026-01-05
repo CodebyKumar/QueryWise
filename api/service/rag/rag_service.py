@@ -136,21 +136,33 @@ class RAGService:
             
             if not child_results:
                 if username:
-                    logger.warning(f"No child chunks retrieved for user '{username}'")
+                    logger.warning(f"RETRIEVAL DEBUG: No child chunks retrieved for user '{username}'")
                 else:
-                    logger.warning("No child chunks retrieved from vector search")
+                    logger.warning("RETRIEVAL DEBUG: No child chunks retrieved from vector search")
                 return []
             
-            # 2. Filter by similarity threshold (assuming scores are in results)
+            # Log initial retrieval scores
+            initial_scores = [round(c.get('score', 0.0), 4) for c in child_results[:5]]
+            logger.info(f"RETRIEVAL DEBUG: Top 5 initial vector scores: {initial_scores}")
+
+            # Dynamic thresholding: If specific documents are selected, be more lenient
+            effective_threshold = 0.15 if documents else 0.2
+            logger.info(f"RETRIEVAL DEBUG: Using effective similarity threshold: {effective_threshold}")
+
+            # 2. Filter by similarity threshold
             filtered_results = []
             for res in child_results:
                 score = res.get('score', 0.0)
                 # Only keep results above similarity threshold
-                if score >= similarity_threshold:
+                if score >= effective_threshold:
                     filtered_results.append(res)
+                else:
+                    # Log drops occasionally
+                    if len(filtered_results) < 1:
+                        logger.info(f"RETRIEVAL DEBUG: Dropping initial chunk score {score} < {similarity_threshold}")
             
             if not filtered_results:
-                logger.warning(f"No results above similarity threshold {similarity_threshold}. Using all results.")
+                logger.warning(f"RETRIEVAL DEBUG: No results above similarity threshold {similarity_threshold}. Using all results.")
                 filtered_results = child_results
             
             logger.info(f"Filtered {len(child_results)} to {len(filtered_results)} chunks above similarity threshold")
@@ -246,21 +258,45 @@ class RAGService:
             # Log the top scores to understand distribution
             if reranked_chunks:
                 top_scores = [round(c.get('score', 0.0), 4) for c in reranked_chunks[:5]]
-                logger.info(f"Top rerank scores: {top_scores}")
+                logger.info(f"RERANK DEBUG: Top 5 FlashRank scores: {top_scores}")
+                logger.info(f"RERANK DEBUG: Top chunk text: {reranked_chunks[0].get('metadata', {}).get('content', '')[:100]}...")
 
             for chunk in reranked_chunks:
-                # Get the best available score
-                score = chunk.get('score', chunk.get('retrieval_score', 0.5))
+                # OPTIMISTIC SCORING STRATEGY
+                # FlashRank can sometimes return near-zero scores (e.g., 1.5e-5) even for relevant content.
+                # Vector Search (Pinecone) usually gives reliable semantic similarity (e.g., 0.5).
+                # To prevent dropping good content due to Reranker failure, we take the MAX of both scores.
                 
-                # Keep chunks above minimum relevance threshold
-                if score >= min_relevance_score:
+                rerank_score = float(chunk.get('score', 0.0))
+                retrieval_score = float(chunk.get('retrieval_score', 0.0))
+                
+                # STRICT SCORING STRATEGY (User Request)
+                # We use the actual Reranker score as the authority.
+                # Only fallback to retrieval score if reranker score is effectively zero (failed to score)
+                if rerank_score > 0.0001:
+                    score = rerank_score
+                else:
+                    score = retrieval_score
+                
+                logger.info(f"RERANK DEBUG: Chunk '{chunk.get('id')}' - Rerank: {rerank_score:.4f}, Vector: {retrieval_score:.4f} -> Final: {score:.4f}")
+                
+                # Keep chunks above minimum relevance threshold (Lowered to 0.25 effective)
+                # If the user specifically accepted a lower threshold, respect that
+                effective_min_score = min(min_relevance_score, 0.25)
+
+                if score >= effective_min_score:
                     chunk['final_score'] = score
                     high_quality_chunks.append(chunk)
                 # Fallback: keep top 2 if they are at least somewhat relevant (e.g. > 0.15)
                 # This prevents showing completely irrelevant docs (0.01 score) for nonsense queries
                 elif len(high_quality_chunks) < 2 and score > 0.15:
+                    logger.info(f"RERANK DEBUG: Keeping lower score chunk {score} as fallback")
                     chunk['final_score'] = score
                     high_quality_chunks.append(chunk)
+                else:
+                    # Log what we are dropping to understand why
+                     if len(high_quality_chunks) < 5: # Only log first few drops to avoid noise
+                        logger.info(f"RERANK DEBUG: Dropping chunk with score {score} (Threshold: {effective_min_score})")
             
             # CRITICAL FALLBACK: If we have NO high quality chunks, but we did find *something*,
             # we should return the top chunks rather than nothing, especially if retrieval found them.
@@ -271,21 +307,27 @@ class RAGService:
                 for chunk in high_quality_chunks:
                      chunk['final_score'] = chunk.get('score', 0.0)
 
-            # Ensure we have enough context - if filtering was too aggressive, add more
-            # But only if they have a modicum of relevance
-            if len(high_quality_chunks) < min(3, len(reranked_chunks)):
+            # Ensure we have enough context (Guaranteed Diversity)
+            # Use a slighly lower threshold for the "fillers" to ensure we get at least 3 items if available
+            target_min_chunks = min(3, len(reranked_chunks))
+            if len(high_quality_chunks) < target_min_chunks:
+                logger.info(f"RERANK DEBUG: Not enough high quality chunks ({len(high_quality_chunks)}), adding fillers...")
                 for chunk in reranked_chunks:
                     if chunk not in high_quality_chunks:
-                        # Hard floor check
+                        # Hard floor check - just filter complete garbage
                         score = chunk.get('score', 0.0)
-                        if score > 0.01:  # Very low floor just to filter complete garbage
+                        if score > 0.001:  # Extremely low floor, just to filter noise
+                            logger.info(f"RERANK DEBUG: Adding filler chunk with score {score}")
                             chunk['final_score'] = score
                             high_quality_chunks.append(chunk)
-                            if len(high_quality_chunks) >= 3:
+                            if len(high_quality_chunks) >= target_min_chunks:
                                 break
             
-            # Cap at reasonable maximum to avoid context overload
-            final_chunks = high_quality_chunks[:max(target_count, 8)]
+            # SORTING (User Request): Ensure strictly descending order by final_score
+            high_quality_chunks.sort(key=lambda x: x.get('final_score', 0.0), reverse=True)
+
+            # Cap at the strict target count requested by the user for optimal retrieval
+            final_chunks = high_quality_chunks[:target_count]
             
             logger.info(f"Post-retrieval complete: {len(chunks)} → {len(reranked_chunks)} reranked → {len(final_chunks)} final chunks")
             logger.info(f"Final chunk scores: {[round(c.get('final_score', 0), 2) for c in final_chunks[:5]]}")
@@ -352,7 +394,7 @@ You are an expert assistant. Your goal is to provide a comprehensive, well-struc
 ### Guidelines:
 1.  **Structure is Key**: Use Markdown headers (###) to organize your response into logical sections (e.g., "Overview", "Key Details", "Analysis").
 2.  **Rich Formatting**: 
-    - Use **Tables** to compare data or list properties.
+    - **Tables**: You MUST use Markdown table syntax (e.g., `| Col1 | Col2 |` followed by `|---|---|`). Do NOT use plain text tables or tab separations.
     - Use `Code Blocks` for technical terms, commands, or code.
     - Use **Bold** for emphasis on important concepts.
     - Use > Blockquotes for summaries or key takeaways.
