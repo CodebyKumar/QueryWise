@@ -126,66 +126,70 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
             <div className="hidden md:block bg-white border-b border-gray-200 px-4 py-3">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">Database Chat</h2>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <h2 className="text-lg font-semibold text-gray-900">Database Chat</h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
                             Connected to: <span className="font-medium">{activeConnection.databaseType}</span>
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {/* Visualize Button - Primary Action */}
                         <button
                             onClick={handleVisualize}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-2"
                             title="Open database visualization"
+                            aria-label="Open database visualization"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
-                            📊 Visualize Database
+                            <span>Visualize Database</span>
                         </button>
                         {/* Clear Chat Button - Secondary Action */}
                         <button
                             onClick={() => setMessages([])}
-                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+                            className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors flex items-center gap-2"
                             title="Clear chat history"
+                            aria-label="Clear chat history"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            Clear Chat
+                            <span>Clear</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Mobile Header */}
-            <div className="md:hidden bg-white border-b border-gray-100 px-4 py-3">
-                <div className="flex items-center justify-between mb-2">
+            {/* Mobile Header - Optimized */}
+            <div className="md:hidden bg-white border-b border-gray-100 px-3 py-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
-                        <h2 className="text-sm font-bold text-gray-900 truncate">Database Chat</h2>
+                        <h2 className="text-sm font-semibold text-gray-900 truncate">Database Chat</h2>
                         <p className="text-xs text-gray-500 truncate">
                             {activeConnection.databaseType}
                         </p>
                     </div>
                     <button
                         onClick={() => setMessages([])}
-                        className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg"
                         title="Clear chat"
+                        aria-label="Clear chat history"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                     </button>
                 </div>
-                {/* Visualize Button - Full Width on Mobile */}
+                {/* Visualize Button - Compact on Mobile */}
                 <button
                     onClick={handleVisualize}
-                    className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                    className="w-full px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-sm flex items-center justify-center gap-2"
+                    aria-label="Open database visualization"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    📊 Visualize Database
+                    Visualize
                 </button>
             </div>
 
@@ -233,8 +237,8 @@ export function DatabaseChatInterface({ activeConnection, onExecuteQuery }) {
                 </div>
             </div>
 
-            {/* Input Area - Sticky at bottom */}
-            <div className="flex-shrink-0 bg-white px-4 md:px-8 pb-4 md:pb-6 pt-2 md:pt-4">
+            {/* Input Area - Fixed at bottom with mobile keyboard support */}
+            <div className="flex-shrink-0 bg-white px-4 md:px-8 pb-safe pb-4 md:pb-6 pt-2 md:pt-4 border-t border-gray-100">
                 <div className="max-w-4xl mx-auto">
                     <div className="relative bg-white border border-gray-200 rounded-[26px] shadow-lg shadow-gray-100/50 hover:shadow-xl transition-all duration-300">
                         <form onSubmit={handleSubmit}>

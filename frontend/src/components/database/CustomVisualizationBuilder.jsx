@@ -54,14 +54,14 @@ export function CustomVisualizationBuilder({
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Custom Visualization</h3>
+        <div className="bg-white p-4 md:p-6 rounded-lg border border-gray-200 shadow-sm">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Create Custom Visualization</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
                 {/* Table Selection */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Select Table
+                        Select Table <span className="text-red-500">*</span>
                     </label>
                     <select
                         value={selectedTable}
@@ -70,7 +70,8 @@ export function CustomVisualizationBuilder({
                             setDimensionColumn('');
                             setMetricColumn('');
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Select a table from your database"
                     >
                         <option value="">Choose a table...</option>
                         {tables.map((table) => (
@@ -86,34 +87,40 @@ export function CustomVisualizationBuilder({
                         {/* Chart Type */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Chart Type
+                                Chart Type <span className="text-red-500">*</span>
                             </label>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 {['bar', 'line', 'pie'].map((type) => (
                                     <button
                                         key={type}
                                         onClick={() => setChartType(type)}
-                                        className={`px-4 py-2 rounded-md capitalize ${
+                                        className={`flex-1 min-w-[80px] px-3 md:px-4 py-2 rounded-md capitalize text-sm transition-all ${
                                             chartType === type
-                                                ? 'bg-blue-500 text-white'
+                                                ? 'bg-blue-500 text-white shadow-sm'
                                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
+                                        type="button"
+                                        aria-label={`Select ${type} chart`}
                                     >
                                         {type}
                                     </button>
                                 ))}
                             </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Bar: Compare categories | Line: Show trends | Pie: Show proportions
+                            </p>
                         </div>
 
                         {/* Dimension Column (optional for grouping) */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Group By (Dimension) - Optional
+                                Group By (Dimension)
                             </label>
                             <select
                                 value={dimensionColumn}
                                 onChange={(e) => setDimensionColumn(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                aria-label="Select column to group data by"
                             >
                                 <option value="">No grouping (single value)</option>
                                 {availableDimensionColumns.map((col) => (
@@ -123,20 +130,21 @@ export function CustomVisualizationBuilder({
                                 ))}
                             </select>
                             <p className="text-xs text-gray-500 mt-1">
-                                Select a column to group data by (e.g., status, category, date)
+                                Optional: Group data by category, status, or date
                             </p>
                         </div>
 
                         {/* Metric Column */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Metric (Value to Aggregate) *
+                                Metric to Aggregate <span className="text-red-500">*</span>
                             </label>
                             <select
                                 value={metricColumn}
                                 onChange={(e) => setMetricColumn(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
+                                aria-label="Select numeric column to aggregate"
                             >
                                 <option value="">Choose a metric...</option>
                                 {availableMetricColumns.map((col) => (
@@ -146,19 +154,20 @@ export function CustomVisualizationBuilder({
                                 ))}
                             </select>
                             <p className="text-xs text-gray-500 mt-1">
-                                Select a numeric column to aggregate (e.g., price, quantity, amount)
+                                Select a numeric column (e.g., price, quantity, amount)
                             </p>
                         </div>
 
                         {/* Aggregation Function */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Aggregation Function
+                                Aggregation Function <span className="text-red-500">*</span>
                             </label>
                             <select
                                 value={aggregation}
                                 onChange={(e) => setAggregation(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                aria-label="Select aggregation function"
                             >
                                 <option value="count">COUNT - Count records</option>
                                 <option value="sum">SUM - Total sum</option>
@@ -166,13 +175,17 @@ export function CustomVisualizationBuilder({
                                 <option value="min">MIN - Minimum value</option>
                                 <option value="max">MAX - Maximum value</option>
                             </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                How to calculate the metric value
+                            </p>
                         </div>
 
                         {/* Generate Button */}
                         <Button
                             onClick={handleGenerate}
                             disabled={!metricColumn || isLoading}
-                            className="w-full"
+                            className="w-full mt-2"
+                            aria-label="Generate custom visualization"
                         >
                             {isLoading ? 'Generating...' : 'Generate Visualization'}
                         </Button>
@@ -180,9 +193,10 @@ export function CustomVisualizationBuilder({
                 )}
 
                 {!selectedTable && (
-                    <p className="text-sm text-gray-500 text-center py-8">
-                        Select a table to start building your custom visualization
-                    </p>
+                    <div className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-lg border border-gray-100">
+                        <p className="font-medium mb-1">Get Started</p>
+                        <p className="text-xs">Select a table above to create your first visualization</p>
+                    </div>
                 )}
             </div>
         </div>
