@@ -10,7 +10,7 @@ export function ToastProvider({ children }) {
     // showToast('message', 'success') - legacy
     // showToast({ message: 'message', type: 'success' }) - new
     let message, type, duration;
-    
+
     if (typeof messageOrOptions === 'string') {
       // Legacy pattern: showToast(message, type)
       message = messageOrOptions;
@@ -40,7 +40,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+      <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:bottom-4 z-50 flex flex-col gap-2 md:max-w-md pointer-events-none">
         {toasts.map(toast => (
           <Toast key={toast.id} {...toast} onClose={() => removeToast(toast.id)} />
         ))}
@@ -99,16 +99,17 @@ function Toast({ type, message, onClose }) {
     <div className={`
       ${style.bg} ${style.border} ${style.text}
       px-4 py-3 rounded-lg border shadow-lg 
-      flex items-start gap-3 min-w-[320px] max-w-md
-      animate-slide-in-right
+      flex items-start gap-3 w-full md:w-auto md:min-w-[320px] max-w-md pointer-events-auto
+      animate-slide-in-right transition-all duration-300
     `}>
       <div className="flex-shrink-0 mt-0.5">
         {style.icon}
       </div>
-      <span className="flex-1 text-sm font-medium">{message}</span>
-      <button 
-        onClick={onClose} 
-        className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+      <span className="flex-1 text-sm font-medium break-words">{message}</span>
+      <button
+        onClick={onClose}
+        className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-1 -mr-1"
+        aria-label="Close notification"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

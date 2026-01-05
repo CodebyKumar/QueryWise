@@ -65,11 +65,11 @@ export function Chart({ chartConfig }) {
     } = chartConfig;
 
     // Limit data for pie/bar charts to prevent overcrowding
-    const processedData = chart_type === 'pie' 
+    const processedData = chart_type === 'pie'
         ? limitWithOthers(data, y_axis, 8)
         : chart_type === 'bar' && data.length > 15
-        ? limitWithOthers(data, y_axis, 15)
-        : data;
+            ? limitWithOthers(data, y_axis, 15)
+            : data;
 
     // Custom tooltip formatter with number formatting
     const CustomTooltip = ({ active, payload, label }) => {
@@ -112,67 +112,106 @@ export function Chart({ chartConfig }) {
         );
     }
 
+    // Helper to truncate long labels
+    const truncateLabel = (value, limit = 15) => {
+        if (typeof value !== 'string') return value;
+        return value.length > limit ? `${value.substring(0, limit)}...` : value;
+    };
+
     return (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
             {description && <p className="text-sm text-gray-500 mb-4">{description}</p>}
-            
-            <div className="h-80">
+            <div className="h-80 w-full">
                 {chart_type === 'bar' && (
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={processedData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis 
-                                dataKey={x_axis} 
-                                label={{ value: x_label, position: 'insideBottom', offset: -5 }}
-                                angle={processedData.length > 10 ? -45 : 0}
-                                textAnchor={processedData.length > 10 ? 'end' : 'middle'}
-                                height={processedData.length > 10 ? 80 : 60}
-                                tick={{ fontSize: 12 }}
-                                tickFormatter={toTitleCase}
+                        <BarChart
+                            data={processedData}
+                            margin={{ top: 20, right: 20, left: 10, bottom: 70 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#f0f0f0"
+                                vertical={false}
                             />
-                            <YAxis 
-                                label={{ value: y_label, angle: -90, position: 'insideLeft' }}
-                                tick={{ fontSize: 12 }}
+
+                            <XAxis
+                                dataKey={x_axis}
+                                label={{ value: x_label, position: 'insideBottom', offset: -45, style: { fill: '#6b7280', fontSize: 12 } }}
+                                angle={-25}
+                                textAnchor="end"
+                                height={60}
+                                tick={{ fontSize: 11, fill: '#6b7280' }}
+                                tickFormatter={(val) =>
+                                    truncateLabel(toTitleCase(val), 14)
+                                }
+                            />
+
+                            <YAxis
+                                label={{ value: y_label, angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 12 }, offset: 10 }}
+                                tick={{ fontSize: 11, fill: '#6b7280' }}
                                 tickFormatter={formatYAxis}
+                                width={60}
                             />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend 
-                                formatter={toTitleCase}
-                                wrapperStyle={{ paddingTop: '10px' }}
+
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{ fill: '#f9fafb' }}
                             />
-                            <Bar dataKey={y_axis} fill={COLORS[0]} radius={[4, 4, 0, 0]} />
+
+                            <Legend
+                                verticalAlign="top"
+                                align="right"
+                                formatter={(val) => (
+                                    <span className="text-gray-600 text-sm">
+                                        {toTitleCase(val)}
+                                    </span>
+                                )}
+                            />
+
+                            <Bar
+                                dataKey={y_axis}
+                                fill={COLORS[0]}
+                                radius={[4, 4, 0, 0]}
+                                maxBarSize={50}
+                            />
                         </BarChart>
                     </ResponsiveContainer>
                 )}
 
+
+
                 {chart_type === 'line' && (
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={processedData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis 
-                                dataKey={x_axis} 
-                                label={{ value: x_label, position: 'insideBottom', offset: -5 }}
-                                tick={{ fontSize: 12 }}
-                                tickFormatter={toTitleCase}
+                        <LineChart data={processedData} margin={{ top: 10, right: 30, left: 20, bottom: 40 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                            <XAxis
+                                dataKey={x_axis}
+                                label={{ value: x_label, position: 'insideBottom', offset: -35, style: { fill: '#6b7280', fontSize: 12 } }}
+                                angle={-45}
+                                textAnchor="end"
+                                height={70}
+                                tick={{ fontSize: 11, fill: '#6b7280' }}
+                                tickFormatter={(val) => truncateLabel(toTitleCase(val), 18)}
                             />
-                            <YAxis 
-                                label={{ value: y_label, angle: -90, position: 'insideLeft' }}
-                                tick={{ fontSize: 12 }}
+                            <YAxis
+                                label={{ value: y_label, angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 12 }, offset: 0 }}
+                                tick={{ fontSize: 11, fill: '#6b7280' }}
                                 tickFormatter={formatYAxis}
+                                width={80}
                             />
                             <Tooltip content={<CustomTooltip />} />
-                            <Legend 
-                                formatter={toTitleCase}
+                            <Legend
+                                formatter={(val) => <span className="text-gray-600 text-sm">{toTitleCase(val)}</span>}
                                 wrapperStyle={{ paddingTop: '10px' }}
                             />
-                            <Line 
-                                type="monotone" 
-                                dataKey={y_axis} 
-                                stroke={COLORS[0]} 
-                                strokeWidth={2}
-                                dot={{ fill: COLORS[0], r: 4 }}
-                                activeDot={{ r: 6 }}
+                            <Line
+                                type="monotone"
+                                dataKey={y_axis}
+                                stroke={COLORS[0]}
+                                strokeWidth={2.5}
+                                dot={{ fill: 'white', stroke: COLORS[0], strokeWidth: 2, r: 4 }}
+                                activeDot={{ r: 6, strokeWidth: 0 }}
                             />
                         </LineChart>
                     </ResponsiveContainer>
@@ -180,43 +219,44 @@ export function Chart({ chartConfig }) {
 
                 {chart_type === 'pie' && (
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                        <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                             <Pie
                                 data={processedData}
                                 dataKey={y_axis}
                                 nameKey={x_axis}
                                 cx="50%"
                                 cy="50%"
-                                outerRadius={100}
+                                outerRadius={80}
                                 label={(entry) => {
-                                    const total = processedData.reduce((sum, item) => sum + item[y_axis], 0);
-                                    const percentage = ((entry[y_axis] / total) * 100).toFixed(1);
-                                    return `${toTitleCase(entry[x_axis])}: ${percentage}%`;
+                                    return truncateLabel(toTitleCase(entry[x_axis]), 15);
                                 }}
-                                labelLine={{ stroke: '#999', strokeWidth: 1 }}
+                                labelLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
                             >
                                 {processedData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
                             <Tooltip content={<CustomTooltip />} />
-                            <Legend 
-                                formatter={toTitleCase}
+                            <Legend
+                                formatter={(val) => <span className="text-gray-600 text-sm">{truncateLabel(toTitleCase(val), 20)}</span>}
                                 wrapperStyle={{ paddingTop: '10px' }}
+                                layout="horizontal"
+                                verticalAlign="bottom"
+                                align="center"
                             />
                         </PieChart>
                     </ResponsiveContainer>
                 )}
 
                 {chart_type === 'table' && (
-                    <div className="overflow-auto max-h-80 rounded-lg border border-gray-200">
+                    <div className="overflow-auto max-h-80 rounded-lg border border-gray-200 scrollbar-thin scrollbar-thumb-gray-200">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50 sticky top-0">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
                                 <tr>
                                     {Object.keys(data[0]).map((key) => (
                                         <th
                                             key={key}
-                                            className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                                            className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap bg-gray-50"
                                         >
                                             {toTitleCase(key)}
                                         </th>
@@ -229,7 +269,7 @@ export function Chart({ chartConfig }) {
                                         {Object.values(row).map((value, colIndex) => (
                                             <td
                                                 key={colIndex}
-                                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-700"
                                             >
                                                 {typeof value === 'number' ? formatNumber(value) : value}
                                             </td>

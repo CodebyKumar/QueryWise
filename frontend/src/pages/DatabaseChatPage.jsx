@@ -16,7 +16,7 @@ export function DatabaseChatPage() {
         addConnection,
         removeConnection
     } = useDatabase();
-    
+
     const [isConnecting, setIsConnecting] = useState(false);
     const { showToast } = useToast();
     const navigate = useNavigate();
@@ -66,9 +66,9 @@ export function DatabaseChatPage() {
         navigate(`/database-visualization?connectionId=${connectionId}&databaseType=${databaseType}`);
     };
 
-    const handleExecuteQuery = async (connectionId, query) => {
+    const handleExecuteQuery = async (connectionId, query, model) => {
         try {
-            const result = await databaseService.executeQuery(connectionId, query);
+            const result = await databaseService.executeQuery(connectionId, query, model);
             return result;
         } catch (error) {
             // Check if error is due to connection not found
@@ -86,6 +86,12 @@ export function DatabaseChatPage() {
     };
 
     const [showSidebar, setShowSidebar] = useState(false);
+
+    const handleClearChat = () => {
+        if (window.clearDatabaseChat) {
+            window.clearDatabaseChat();
+        }
+    };
 
     return (
         <div className="h-dvh flex flex-col bg-white overflow-hidden">
@@ -126,7 +132,7 @@ export function DatabaseChatPage() {
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden relative">
                     {/* Refined Mobile Header */}
-                    <div className="md:hidden flex items-center h-14 px-4 bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30">
+                    <div className="md:hidden flex items-center justify-between h-14 px-4 bg-white border-b border-gray-100">
                         <button
                             onClick={() => setShowSidebar(true)}
                             className="p-2 -ml-2 text-gray-400 hover:text-orange-600 transition-colors"
@@ -143,8 +149,33 @@ export function DatabaseChatPage() {
                             </h1>
                         </div>
 
-                        {/* Placeholder for symmetry */}
-                        <div className="w-8" />
+                        {/* Action buttons on the right */}
+                        <div className="flex items-center gap-1">
+                            {activeConnection && (
+                                <>
+                                    <button
+                                        onClick={() => navigate(`/database-visualization?connectionId=${activeConnection.id}&databaseType=${activeConnection.databaseType}`)}
+                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        aria-label="Visualize database"
+                                        title="Visualize"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={handleClearChat}
+                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        aria-label="Clear chat"
+                                        title="Clear chat"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     {/* Chat Interface */}
@@ -152,6 +183,7 @@ export function DatabaseChatPage() {
                         <DatabaseChatInterface
                             activeConnection={activeConnection}
                             onExecuteQuery={handleExecuteQuery}
+                            onClearChat={(clearFn) => { window.clearDatabaseChat = clearFn; }}
                         />
                     </div>
                 </div>

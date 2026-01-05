@@ -110,12 +110,19 @@ export function useChatSessions() {
           }
         }
 
-        // Priority 2: Reuse empty session
-        // Default to the most recent session if available
+        // Priority 2: Reuse empty session or create new one
         if (sessionsList.length > 0) {
-          setCurrentSessionId(sessionsList[0].session_id);
+          const mostRecent = sessionsList[0];
+          // If the most recent session has messages, create a new one
+          if (mostRecent.messages && mostRecent.messages.length > 0) {
+            await createSession();
+          } else {
+            // If it's empty, reuse it
+            setCurrentSessionId(mostRecent.session_id);
+          }
         } else {
-          setCurrentSessionId(null);
+          // No sessions exist, create first one
+          await createSession();
         }
       } catch (error) {
         console.error('Error initializing sessions:', error);

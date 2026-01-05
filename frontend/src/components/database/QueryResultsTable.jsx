@@ -43,13 +43,13 @@ export function QueryResultsTable({ results, rowCount }) {
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4 p-4">
             {/* Header with row count and export buttons */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-4">
                 <div className="text-xs md:text-sm text-gray-600">
                     <span className="font-bold text-gray-900">{rowCount}</span> row{rowCount !== 1 ? 's' : ''} returned
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <button
                         onClick={exportToCSV}
                         className="px-3 py-1.5 text-[10px] md:text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all uppercase tracking-tighter"

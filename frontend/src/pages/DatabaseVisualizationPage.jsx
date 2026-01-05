@@ -28,11 +28,11 @@ export function DatabaseVisualizationPage() {
     const [searchParams] = useSearchParams();
     const connectionIdFromUrl = searchParams.get('connectionId');
     const databaseType = searchParams.get('databaseType') || 'database';
-    
+
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { activeConnection, activeConnectionId } = useDatabase();
-    
+
     // Use connection from context if available, fallback to URL param
     const connectionId = activeConnectionId || connectionIdFromUrl;
 
@@ -62,8 +62,15 @@ export function DatabaseVisualizationPage() {
             );
 
             if (result.success) {
+                // Sort charts: Pie first, then others
+                if (result.suggested_charts) {
+                    result.suggested_charts.sort((a, b) => {
+                        const typeScore = { pie: 1, bar: 2, line: 3, table: 4 };
+                        return (typeScore[a.chart_type] || 99) - (typeScore[b.chart_type] || 99);
+                    });
+                }
                 setMetadata(result);
-                showToast('Visualization data loaded successfully', 'success');
+                // Removed success toast as the charts appearing is sufficient feedback
             } else {
                 showToast(result.error || 'Failed to load visualization data', 'error');
             }
@@ -109,7 +116,7 @@ export function DatabaseVisualizationPage() {
         return (
             <div className="h-screen flex flex-col bg-gray-50">
                 <Header />
-                
+
                 {/* Loading state with skeleton */}
                 <div className="flex-1 overflow-auto">
                     <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -121,7 +128,7 @@ export function DatabaseVisualizationPage() {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="p-6">
                         <ChartSkeletonGrid count={4} />
                     </div>
@@ -166,98 +173,56 @@ export function DatabaseVisualizationPage() {
             <Header />
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Page Header - Responsive */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 px-4 md:px-6 py-3 md:py-5">
-                    {/* Top row - Back button and title */}
-                    <div className="flex items-start justify-between gap-3 mb-3 md:mb-4">
-                        <div className="flex items-start gap-2 md:gap-4 min-w-0 flex-1">
+                {/* Page Header - Refined & Compact */}
+                <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+                    <div className="px-4 py-3">
+                        <div className="flex items-center gap-3 mb-3">
                             <Button
-                                variant="ghost"
                                 onClick={handleBack}
-                                className="flex items-center gap-1 md:gap-2 hover:bg-white/50 shrink-0 p-2 md:px-3 md:py-2"
-                                aria-label="Back to database chat"
+                                variant="ghost"
+                                className="-ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 flex items-center gap-1 px-2 py-1.5 h-auto rounded-lg transition-colors"
+                                aria-label="Return to chat"
                             >
-                                <ArrowLeft size={18} className="md:w-5 md:h-5" />
-                                <span className="hidden md:inline">Back</span>
+                                <ArrowLeft size={18} className="text-gray-500" />
+                                <span className="text-sm font-medium">Chat</span>
                             </Button>
-                            <div className="min-w-0 flex-1">
-                                <h1 className="text-xl md:text-3xl font-bold text-gray-900 mb-1 truncate">
+
+                            <div className="h-4 w-px bg-gray-200 mx-1"></div>
+
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-base font-bold text-gray-900 leading-tight truncate">
                                     Database Insights
                                 </h1>
+                                <p className="text-xs text-gray-500 mt-0.5 truncate flex items-center gap-1.5">
+                                    <span className="capitalize font-medium text-gray-700">{databaseType}</span>
+                                    <span className="w-0.5 h-0.5 bg-gray-400 rounded-full"></span>
+                                    <span>{metadata.total_tables} Tables</span>
+                                    <span className="w-0.5 h-0.5 bg-gray-400 rounded-full"></span>
+                                    <span>{formatNumber(metadata.total_rows)} Rows</span>
+                                </p>
                             </div>
                         </div>
-                        
-                        <Button
-                            onClick={loadVisualizationMetadata}
-                            variant="secondary"
-                            className="flex items-center gap-2 shrink-0 text-sm"
-                            aria-label="Refresh visualization data"
-                        >
-                            <RefreshCw size={16} className="md:w-[18px] md:h-[18px]" />
-                            <span className="hidden md:inline">Refresh</span>
-                        </Button>
-                    </div>
 
-                    {/* Stats pills - Responsive layout */}
-                    <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-600 mb-3 md:mb-4">
-                        <span className="flex items-center gap-1.5 bg-white px-2.5 md:px-3 py-1 md:py-1.5 rounded-full shadow-sm" title="Database type">
-                            <Database size={12} className="md:w-[14px] md:h-[14px]" />
-                            <span className="font-medium">{databaseType}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 bg-white px-2.5 md:px-3 py-1 md:py-1.5 rounded-full shadow-sm" title="Total number of tables in database">
-                            <Table size={12} className="md:w-[14px] md:h-[14px]" />
-                            <span><span className="font-semibold">{metadata.total_tables}</span> tables</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 bg-white px-2.5 md:px-3 py-1 md:py-1.5 rounded-full shadow-sm" title="Total number of records across all tables">
-                            <BarChart3 size={12} className="md:w-[14px] md:h-[14px]" />
-                            <span><span className="font-semibold">{formatNumber(metadata.total_rows)}</span> records</span>
-                        </span>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex gap-1 md:gap-2 overflow-x-auto scrollbar-hide">
-                        <button
-                            onClick={() => setActiveTab('overview')}
-                            className={`px-4 md:px-6 py-2 md:py-2.5 font-medium rounded-lg transition-all whitespace-nowrap text-sm md:text-base ${
-                                activeTab === 'overview'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
-                            }`}
-                            aria-label="Overview tab - auto-generated insights"
-                        >
-                            <div className="flex items-center gap-2">
-                                <TrendingUp size={16} className="md:w-[18px] md:h-[18px]" />
-                                <span>Overview</span>
-                            </div>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('custom')}
-                            className={`px-4 md:px-6 py-2 md:py-2.5 font-medium rounded-lg transition-all whitespace-nowrap text-sm md:text-base ${
-                                activeTab === 'custom'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
-                            }`}
-                            aria-label="Custom tab - create your own visualizations"
-                        >
-                            <div className="flex items-center gap-2">
-                                <BarChart3 size={16} className="md:w-[18px] md:h-[18px]" />
-                                <span>Custom</span>
-                            </div>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('tables')}
-                            className={`px-4 md:px-6 py-2 md:py-2.5 font-medium rounded-lg transition-all whitespace-nowrap text-sm md:text-base ${
-                                activeTab === 'tables'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
-                            }`}
-                            aria-label="Schema tab - view database structure"
-                        >
-                            <div className="flex items-center gap-2">
-                                <Table size={16} className="md:w-[18px] md:h-[18px]" />
-                                <span>Schema</span>
-                            </div>
-                        </button>
+                        {/* Tabs - Sleek Segmented Look */}
+                        <div className="flex p-0.5 bg-gray-100/50 rounded-lg overflow-x-auto scrollbar-hide">
+                            {[
+                                { id: 'overview', icon: TrendingUp, label: 'Overview' },
+                                { id: 'custom', icon: BarChart3, label: 'Custom' },
+                                { id: 'tables', icon: Table, label: 'Schema' }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${activeTab === tab.id
+                                        ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-200/50'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                                        }`}
+                                >
+                                    <tab.icon size={14} className={activeTab === tab.id ? 'text-blue-500' : 'text-gray-400'} />
+                                    <span>{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -276,7 +241,7 @@ export function DatabaseVisualizationPage() {
                                             Auto-Generated Insights
                                         </h3>
                                         <p className="text-xs md:text-sm text-gray-700">
-                                            These visualizations are automatically created using rule-based logic and safe SQL aggregations. 
+                                            These visualizations are automatically created using rule-based logic and safe SQL aggregations.
                                             They provide an instant overview of your database structure and content.
                                         </p>
                                     </div>
@@ -293,7 +258,7 @@ export function DatabaseVisualizationPage() {
                                             No Visualizations Available
                                         </h3>
                                         <p className="text-sm md:text-base text-gray-600 max-w-md mx-auto">
-                                            This database doesn't have suitable data for auto-generated charts. 
+                                            This database doesn't have suitable data for auto-generated charts.
                                             Try creating custom visualizations in the Custom tab.
                                         </p>
                                     </div>
@@ -338,7 +303,7 @@ export function DatabaseVisualizationPage() {
                                                     Create Your First Visualization
                                                 </h3>
                                                 <p className="text-sm md:text-base text-gray-600 max-w-md mx-auto mb-4 md:mb-6">
-                                                    Use the builder on the left to create custom charts. 
+                                                    Use the builder on the left to create custom charts.
                                                     Select a table, choose columns, and pick a chart type to get started.
                                                 </p>
                                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3 justify-center text-xs md:text-sm">
@@ -458,12 +423,11 @@ export function DatabaseVisualizationPage() {
                                                             {col.data_type}
                                                         </td>
                                                         <td className="px-4 md:px-6 py-3 md:py-4 text-sm hidden sm:table-cell">
-                                                            <span className={`px-2 md:px-2.5 py-0.5 md:py-1 rounded-full text-xs font-semibold ${
-                                                                col.category === 'numeric' ? 'bg-blue-100 text-blue-700' :
+                                                            <span className={`px-2 md:px-2.5 py-0.5 md:py-1 rounded-full text-xs font-semibold ${col.category === 'numeric' ? 'bg-blue-100 text-blue-700' :
                                                                 col.category === 'text' ? 'bg-gray-100 text-gray-700' :
-                                                                col.category === 'timestamp' ? 'bg-purple-100 text-purple-700' :
-                                                                'bg-yellow-100 text-yellow-700'
-                                                            }`}>
+                                                                    col.category === 'timestamp' ? 'bg-purple-100 text-purple-700' :
+                                                                        'bg-yellow-100 text-yellow-700'
+                                                                }`}>
                                                                 {col.category}
                                                             </span>
                                                         </td>

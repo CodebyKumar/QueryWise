@@ -114,12 +114,12 @@ export function DocumentList({ documents, onDocumentsChanged, isSelectionMode, o
               key={index}
               hover
               padding="sm"
-              className={`transition-all relative ${isSelected ? 'ring-2 ring-orange-500 border-orange-200 bg-orange-50' : 'cursor-pointer hover:border-orange-200'}`}
+              className={`transition-all relative overflow-hidden ${isSelected ? 'ring-2 ring-orange-500 border-orange-200 bg-orange-50' : 'cursor-pointer hover:border-orange-200'}`}
               onClick={() => handleDocumentClick(index)}
             >
-              <div className="flex items-start gap-3 md:gap-4">
+              <div className="flex items-start gap-2 md:gap-4 min-w-0">
                 {isSelectionMode && (
-                  <div className="pt-2">
+                  <div className="pt-2 shrink-0">
                     <input
                       type="checkbox"
                       className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
@@ -129,34 +129,34 @@ export function DocumentList({ documents, onDocumentsChanged, isSelectionMode, o
                     />
                   </div>
                 )}
-                <div className={`w-10 h-10 md:w-12 md:h-12 ${isSelected ? 'bg-orange-200' : 'bg-orange-100'} rounded-lg flex items-center justify-center flex-shrink-0 transition-colors`}>
+                <div className={`w-10 h-10 md:w-12 md:h-12 ${isSelected ? 'bg-orange-200' : 'bg-orange-100'} rounded-lg flex items-center justify-center shrink-0 transition-colors`}>
                   <svg className={`w-5 h-5 md:w-6 md:h-6 ${isSelected ? 'text-orange-700' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 flex-wrap">
-                    <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-1 truncate min-w-0 max-w-full">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <h3 className="text-base md:text-lg font-semibold text-gray-900 truncate flex-1 min-w-0">
                       {doc.title || 'Untitled Document'}
                     </h3>
                     {!isSelectionMode && (
-                      <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full shrink-0">
+                      <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full shrink-0 whitespace-nowrap">
                         Indexed
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 md:gap-4 text-sm text-gray-600 mb-2 flex-wrap">
+                  <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-600 mb-2 flex-wrap">
                     {doc.filename && (
                       <span className="flex items-center gap-1 min-w-0 max-w-full">
-                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                         <span className="truncate">{doc.filename}</span>
                       </span>
                     )}
                     {doc.chunks && (
-                      <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className="flex items-center gap-1 shrink-0">
+                        <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
                         {doc.chunks} chunks
@@ -164,7 +164,7 @@ export function DocumentList({ documents, onDocumentsChanged, isSelectionMode, o
                     )}
                   </div>
                   {(expandedIndex === index || isSelectionMode) && (
-                    <div className={`rounded p-3 mt-2 text-sm text-gray-700 transition-colors ${isSelected ? 'bg-orange-100/50' : 'bg-gray-50'}`}>
+                    <div className={`rounded p-3 mt-2 text-xs md:text-sm text-gray-700 transition-colors break-words ${isSelected ? 'bg-orange-100/50' : 'bg-gray-50'}`}>
                       {description}
                     </div>
                   )}

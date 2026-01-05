@@ -26,10 +26,11 @@ export const databaseService = {
      * @param {string} naturalLanguageQuery - User's question in natural language
      * @returns {Promise} Query execution response with SQL and results
      */
-    async executeQuery(connectionId, naturalLanguageQuery) {
+    async executeQuery(connectionId, naturalLanguageQuery, model) {
         const response = await api.post(`${BASE_PATH}/execute`, {
             connection_id: connectionId,
-            natural_language_query: naturalLanguageQuery
+            natural_language_query: naturalLanguageQuery,
+            model: model
         });
         return response.data;
     },

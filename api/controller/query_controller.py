@@ -151,7 +151,8 @@ class QueryController:
             logger.info(f"Generating SQL for: {nl_query}")
             generated_sql = await sql_generation_service.generate_sql(
                 natural_language_query=nl_query,
-                formatted_schema=formatted_schema
+                formatted_schema=formatted_schema,
+                model=query_request.model
             )
             
             # Step 4: Execute query (validation happens inside execute_query)

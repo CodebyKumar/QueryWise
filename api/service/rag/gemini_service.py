@@ -128,7 +128,7 @@ class GeminiService:
         logger.info("Gemini Service initialized (stateless mode).")
         return True
 
-    async def generate_answer(self, prompt: str, api_key: str = None) -> str:
+    async def generate_answer(self, prompt: str, api_key: str = None, model: str = None) -> str:
         """Generates a text response based on a prompt using an async call."""
         client = self._get_client(api_key)
         if not client:
@@ -139,7 +139,7 @@ class GeminiService:
             # New SDK async generation
             usage_tracker.increment()
             response = await client.aio.models.generate_content(
-                model=GENERATIVE_MODEL_NAME,
+                model=model or GENERATIVE_MODEL_NAME,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     safety_settings=self.safety_settings

@@ -16,6 +16,7 @@ class NaturalLanguageQueryRequest(BaseModel):
     """Schema for natural language query request."""
     connection_id: str = Field(..., description="ID of the active database connection")
     natural_language_query: str = Field(..., description="The natural language question to ask the database")
+    model: Optional[str] = Field(None, description="The model to use for generation (e.g., gemini-2.5-flash)")
 
 class QueryExecutionResponse(BaseModel):
     """Schema for query execution response."""

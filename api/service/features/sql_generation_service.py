@@ -19,7 +19,8 @@ class SQLGenerationService:
     async def generate_sql(
         self, 
         natural_language_query: str, 
-        formatted_schema: str
+        formatted_schema: str,
+        model: Optional[str] = None
     ) -> str:
         """
         Generate SQL query from natural language using Gemini LLM
@@ -27,6 +28,7 @@ class SQLGenerationService:
         Args:
             natural_language_query: User's question in natural language
             formatted_schema: Database schema formatted for LLM understanding
+            model: Optional model name to use
             
         Returns:
             Generated SQL query string
@@ -42,8 +44,8 @@ class SQLGenerationService:
             )
             
             # Generate SQL using Gemini
-            logger.info(f"Generating SQL for query: {natural_language_query}")
-            response = await gemini_service.generate_answer(prompt)
+            logger.info(f"Generating SQL for query: {natural_language_query} using model: {model}")
+            response = await gemini_service.generate_answer(prompt, model=model)
             
             # Extract clean SQL from response
             sql_query = self._extract_sql_from_response(response)

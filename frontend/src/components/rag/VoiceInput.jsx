@@ -7,7 +7,7 @@ import { useToast } from '../../hooks/useToast';
  * Records audio from the browser microphone and sends it to the speech-to-text API.
  * Returns transcribed text via the onTranscribe callback.
  */
-export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
+export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme = 'orange' }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef(null);
@@ -119,6 +119,13 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
     }
   };
 
+  const getThemeColors = () => {
+    if (theme === 'blue') {
+      return isRecording ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-gray-400 hover:text-blue-600';
+    }
+    return isRecording ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-gray-400 hover:text-orange-600';
+  };
+
   return (
     <button
       type="button"
@@ -126,10 +133,7 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false }) {
       disabled={disabled || isProcessing}
       className={`
         p-2 rounded-md transition-all duration-200
-        ${isRecording
-          ? 'text-red-500 animate-pulse hover:text-red-600'
-          : 'text-gray-400 hover:text-orange-600'
-        }
+        ${getThemeColors()}
         ${isProcessing ? 'opacity-50 cursor-wait' : ''}
         ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
       `}
