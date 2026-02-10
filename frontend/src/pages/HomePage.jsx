@@ -13,8 +13,12 @@ export function HomePage() {
 
 
   const handleGetStarted = (e) => {
-    e.preventDefault();
-    navigate(ROUTES.SIGNUP, { state: { email } });
+    if (e) e.preventDefault();
+    if (email) {
+      navigate(ROUTES.SIGNUP, { state: { email } });
+    } else {
+      navigate(ROUTES.SIGNUP);
+    }
   };
 
   return (
@@ -72,7 +76,6 @@ export function HomePage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-6 py-5 bg-transparent border-none focus:ring-0 focus:outline-none text-slate-900 text-lg font-bold placeholder-slate-400 rounded-xl"
-                      required
                     />
                   </div>
                 </div>
