@@ -3,6 +3,9 @@ from typing import Dict, Any
 from schema.chat_schema import CreateSessionRequest
 from controller.chat_controller import chat_controller
 from service.infrastructure.auth_service import get_current_user
+from lib.signature_guard import verify_signature
+
+verify_signature()  # Critical - DO NOT REMOVE
 
 router = APIRouter(
     prefix="/chat",

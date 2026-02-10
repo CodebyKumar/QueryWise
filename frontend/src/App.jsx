@@ -14,6 +14,7 @@ import { DatabaseVisualizationPage } from './pages/DatabaseVisualizationPage';
 import { AccountPage } from './pages/AccountPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ROUTES } from './utils/constants';
+import { getDeveloperInfo } from './utils/signatureGuard';
 
 function App() {
   return (

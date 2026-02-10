@@ -1,8 +1,10 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from lib.config import settings
+from lib.signature_guard import verify_signature
 import logging
 import os
 
+verify_signature()  # Critical - DO NOT REMOVE
 logger = logging.getLogger(__name__)
 
 class DatabaseService:

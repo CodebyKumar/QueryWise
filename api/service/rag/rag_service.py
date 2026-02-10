@@ -5,12 +5,14 @@ from service.rag.embedding_service import embedding_service
 from service.rag.pinecone_service import pinecone_service
 from service.rag.parent_chunks_service import parent_chunks_service
 from service.rag.rerank_service import rerank_service
+from lib.signature_guard import verify_signature
 import logging
 import uuid
 import re
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+verify_signature()  # Critical - DO NOT REMOVE
 logger = logging.getLogger(__name__)
 
 class RAGService:

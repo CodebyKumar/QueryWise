@@ -4,12 +4,15 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from lib.config import settings
+from lib.signature_guard import verify_signature
 from service.infrastructure.user_service import user_service
 from schema.token_schema import TokenData
 import logging
 import hashlib
 import secrets
 import base64
+
+verify_signature()  # Critical - DO NOT REMOVE
 
 # Password hashing using Python's built-in hashlib (more reliable than bcrypt)
 def _hash_password_with_salt(password: str, salt: bytes) -> str:

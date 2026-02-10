@@ -89,3 +89,17 @@ dmypy.json
 *.backup
 
 ./documentation
+
+# Signature protection files (DO NOT COMMIT - Generate from env vars on deployment)
+.signature
+frontend/.signature
+
+# Private documentation and secrets
+secrets.md
+deployment.md
+test_signature.py
+verify_signature_protection.sh
+generate_signatures.sh
+render_build.sh
+
+# Note: signature_guard.py files ARE committed (verification logic only, no secrets)

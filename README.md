@@ -1,5 +1,11 @@
 # DocuMind - Intelligent Document Chat
 
+> **Built by: kk**  
+> **Project Signature:** KK_2026_MINI_AUTH_PROTECTED  
+> **License:** All rights reserved. This project is protected and authenticated.
+
+---
+
 DocuMind is an advanced RAG (Retrieval-Augmented Generation) application that allows users to seamlessly interact with their documents using AI. By leveraging the power of Google's Gemini models, Groq's high-speed inference, and vector search, DocuMind provides accurate, context-aware answers from your uploaded files and databases.
 
 ## Live Demo
@@ -54,3 +60,41 @@ To overcome the limitations of standard chunking, DocuMind employs a **Parent-Ch
 -   **Vector DB:** Pinecone
 -   **Database:** MongoDB Atlas (Chat History), PostgreSQL/MySQL (Data Analysis)
 -   **Deployment:** Vercel (Frontend), Render (Backend)
+---
+
+## ⚠️ Project Protection Notice
+
+This project is **protected and authenticated** with embedded signature verification. The signature system ensures proper attribution and project integrity.
+
+**Key Protection Features:**
+- 🔒 **Signature Verification:** Both backend and frontend verify the project signature on startup
+- 🛡️ **Tamper Protection:** Removing or modifying the signature will prevent the application from running
+- 👤 **Developer Attribution:** Clear attribution to the original developer throughout the application
+- 🔐 **License Protection:** Built-in license key validation system
+
+**Protected Files:**
+- `.signature` (Backend & Frontend signature files)
+- `api/lib/signature_guard.py` (Backend verification service)
+- `frontend/src/utils/signatureGuard.js` (Frontend verification service)
+
+**⚠️ WARNING:** Do not remove or modify the signature files or verification code. The application will not function without valid signatures.
+
+---
+
+## 📝 License & Attribution
+
+**Developer:** kk  
+**Project:** MINI AI Database Assistant (DocuMind)  
+**Build Signature:** KK_2026_MINI_AUTH_PROTECTED  
+**Copyright:** © 2026 kk. All rights reserved.
+
+This project is the intellectual property of kk. Unauthorized use, distribution, or modification without proper attribution is prohibited.
+
+---
+
+## 🤝 Contact
+
+For inquiries, collaboration, or licensing questions, please contact the developer.
+
+**kk**  
+Project: MINI AI Database Assistant
