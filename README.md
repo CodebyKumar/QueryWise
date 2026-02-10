@@ -1,8 +1,7 @@
 # DocuMind - Intelligent Document Chat
 
 > **Built by: kk**  
-> **Project Signature:** KK_2026_MINI_AUTH_PROTECTED  
-> **License:** All rights reserved. This project is protected and authenticated.
+
 
 ---
 
