@@ -78,22 +78,3 @@ This project is **protected and authenticated** with embedded signature verifica
 
 **⚠️ WARNING:** Do not remove or modify the signature files or verification code. The application will not function without valid signatures.
 
----
-
-## 📝 License & Attribution
-
-**Developer:** kk  
-**Project:** MINI AI Database Assistant (DocuMind)  
-**Build Signature:** KK_2026_MINI_AUTH_PROTECTED  
-**Copyright:** © 2026 kk. All rights reserved.
-
-This project is the intellectual property of kk. Unauthorized use, distribution, or modification without proper attribution is prohibited.
-
----
-
-## 🤝 Contact
-
-For inquiries, collaboration, or licensing questions, please contact the developer.
-
-**kk**  
-Project: MINI AI Database Assistant
