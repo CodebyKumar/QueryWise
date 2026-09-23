@@ -50,8 +50,11 @@ htmlcov/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pyenv
-.python-version
+# pyenv — keep .python-version so Vercel pins Python 3.12
+# .python-version
+
+# Model / local caches
+.cache/
 
 # Logs
 *.log

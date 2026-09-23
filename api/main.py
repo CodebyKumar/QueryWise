@@ -81,10 +81,18 @@ app = FastAPI(
 )
 
 # --- CORS middleware ---
+# Browsers reject allow_origins=["*"] when allow_credentials=True.
+# Set CORS_ORIGINS to a comma-separated list of frontend URLs in production.
+_cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
+_cors_origins = (
+    [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
+    if _cors_origins_env != "*"
+    else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
