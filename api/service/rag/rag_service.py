@@ -423,20 +423,18 @@ Answer:
             if prefer_gemini:
                 if google_key:
                     answer = await gemini_service.generate_answer(prompt, api_key=google_key, model=model)
-                if not answer or "service is not available" in answer.lower():
-                    if groq_key:
-                        logger.info("Gemini API key unavailable or failed. Falling back to Groq service...")
-                        answer = await groq_service.generate_answer(prompt, api_key=groq_key)
+                if not answer and groq_key:
+                    logger.info("Gemini service unavailable or failed. Falling back to Groq service...")
+                    answer = await groq_service.generate_answer(prompt, api_key=groq_key)
             else:
                 if groq_key:
                     answer = await groq_service.generate_answer(prompt, api_key=groq_key, model=model)
-                if not answer or "service is not available" in answer.lower():
-                    if google_key:
-                        logger.info("Groq API key unavailable or failed. Falling back to Gemini service...")
-                        answer = await gemini_service.generate_answer(prompt, api_key=google_key)
+                if not answer and google_key:
+                    logger.info("Groq service unavailable or failed. Falling back to Gemini service...")
+                    answer = await gemini_service.generate_answer(prompt, api_key=google_key)
 
             if not answer:
-                answer = "Sorry, neither Groq nor Gemini API key is configured. Please provide an API key in settings or environment."
+                answer = "I apologize, but no active LLM provider (Groq or Gemini) is currently available to process your request. Please verify your API keys in settings."
             
             # Keep the markdown formatting - don't strip it
             logger.info(f"Generated markdown answer for query: {query[:50]}... (length: {len(answer)} chars)")
@@ -445,6 +443,91 @@ Answer:
         except Exception as e:
             logger.error(f"Error in generation module: {e}")
             return "I apologize, but I encountered an error while generating the answer."
+
+    async def generation_module_stream(self, query: str, context_chunks: List[Dict[str, Any]], chat_history: List[Dict[str, Any]] = None, document_descriptions: List[str] = None, api_keys: Dict[str, str] = {}):
+        """Streaming version of generation_module yielding token chunks."""
+        try:
+            model = api_keys.get("model", "gemini-2.5-flash")
+            logger.info(f"Using model: {model} for streaming generation")
+            context_parts = [chunk.get("metadata", {}).get("content", "") for chunk in context_chunks]
+            context = "\n\n---\n\n".join(context_parts)
+            
+            conversation_context = ""
+            if chat_history and len(chat_history) > 0:
+                recent_history = chat_history[-20:]
+                history_parts = []
+                for msg in recent_history:
+                    role = msg.get('role', 'user')
+                    content = msg.get('content', '')
+                    if role == 'user':
+                        history_parts.append(f"User: {content}")
+                    else:
+                        history_parts.append(f"Assistant: {content}")
+                conversation_context = "\n".join(history_parts)
+            
+            doc_overview = ""
+            if document_descriptions:
+                doc_overview = "DOCUMENT OVERVIEW:\n" + "\n".join([f"- {desc}" for desc in document_descriptions]) + "\n\n"
+            
+            history_header = f"PREVIOUS CONVERSATION:\n{conversation_context}\n\n" if conversation_context else ""
+            
+            prompt = f"""
+You are an expert assistant. Your goal is to provide a comprehensive, well-structured answer in a natural, professional voice.
+
+### Guidelines:
+1.  **Structure is Key**: Use Markdown headers (###) to organize your response into logical sections (e.g., "Overview", "Key Details", "Analysis").
+2.  **Rich Formatting**: 
+    - **Tables**: You MUST use Markdown table syntax (e.g., `| Col1 | Col2 |` followed by `|---|---|`). Do NOT use plain text tables or tab separations.
+    - Use `Code Blocks` for technical terms, commands, or code.
+    - Use **Bold** for emphasis on important concepts.
+    - Use > Blockquotes for summaries or key takeaways.
+3.  **Be Direct**: Start with a direct answer to the question.
+4.  **Natural Flow**: Use fluid transitions between paragraphs.
+5.  **Context Use**: Base your answer STRICTLY on the "Available Information" below.
+6.  **Tone**: Professional, confident, and helpful.
+
+### Context:
+{history_header}{doc_overview}
+
+### Available Information:
+{context}
+
+### User Question:
+{query}
+
+Answer:
+"""
+            groq_key = api_keys.get("groq_api_key") or settings.groq_api_key
+            google_key = api_keys.get("google_api_key") or settings.google_api_key
+            prefer_gemini = "gemini" in model.lower()
+
+            chunk_count = 0
+            if prefer_gemini:
+                if google_key:
+                    async for chunk in gemini_service.generate_answer_stream(prompt, api_key=google_key, model=model):
+                        chunk_count += 1
+                        yield chunk
+                if chunk_count == 0 and groq_key:
+                    logger.info("Gemini stream failed/empty. Falling back to Groq stream...")
+                    async for chunk in groq_service.generate_answer_stream(prompt, api_key=groq_key):
+                        chunk_count += 1
+                        yield chunk
+            else:
+                if groq_key:
+                    async for chunk in groq_service.generate_answer_stream(prompt, api_key=groq_key, model=model):
+                        chunk_count += 1
+                        yield chunk
+                if chunk_count == 0 and google_key:
+                    logger.info("Groq stream failed/empty. Falling back to Gemini stream...")
+                    async for chunk in gemini_service.generate_answer_stream(prompt, api_key=google_key):
+                        chunk_count += 1
+                        yield chunk
+
+            if chunk_count == 0:
+                yield "I apologize, but no active LLM provider (Groq or Gemini) is currently available to process your request. Please verify your API keys in settings."
+        except Exception as e:
+            logger.error(f"Error in generation module stream: {e}")
+            yield "I apologize, but I encountered an error while generating the answer."
     
     def _strip_markdown_for_tts(self, text: str) -> str:
         """

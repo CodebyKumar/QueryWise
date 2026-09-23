@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from lib.config import settings
 import logging
 import asyncio
@@ -128,27 +128,71 @@ class GeminiService:
         logger.info("Gemini Service initialized (stateless mode).")
         return True
 
-    async def generate_answer(self, prompt: str, api_key: str = None, model: str = None) -> str:
+    async def generate_answer(self, prompt: str, api_key: str = None, model: str = None) -> Optional[str]:
         """Generates a text response based on a prompt using an async call."""
         client = self._get_client(api_key)
         if not client:
             logger.error("Gemini client could not be initialized (Missing Key).")
-            return "Sorry, the generation service is not available (Missing API Key)."
+            return None
             
-        try:
-            # New SDK async generation
-            usage_tracker.increment()
-            response = await client.aio.models.generate_content(
-                model=model or GENERATIVE_MODEL_NAME,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    safety_settings=self.safety_settings
+        models_to_try = []
+        if model and "gemini" in model.lower():
+            models_to_try.append(model)
+        models_to_try.append(GENERATIVE_MODEL_NAME)
+
+        for selected_model in models_to_try:
+            try:
+                usage_tracker.increment()
+                response = await client.aio.models.generate_content(
+                    model=selected_model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        safety_settings=self.safety_settings
+                    )
                 )
-            )
-            return response.text
-        except Exception as e:
-            logger.error(f"Failed to generate answer: {e}")
-            return "Sorry, I couldn't generate an answer at this time."
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                err_str = str(e)
+                logger.warning(f"Gemini model '{selected_model}' generation failed: {e}")
+                if "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
+                    logger.error("Invalid Gemini API Key detected. Aborting model fallback loop.")
+                    break
+                
+        return None
+
+    async def generate_answer_stream(self, prompt: str, api_key: str = None, model: str = None):
+        """Generates a text response stream based on a prompt using an async call."""
+        client = self._get_client(api_key)
+        if not client:
+            logger.error("Gemini client could not be initialized (Missing Key).")
+            return
+
+        models_to_try = []
+        if model and "gemini" in model.lower():
+            models_to_try.append(model)
+        models_to_try.append(GENERATIVE_MODEL_NAME)
+
+        for selected_model in models_to_try:
+            try:
+                usage_tracker.increment()
+                response_stream = await client.aio.models.generate_content_stream(
+                    model=selected_model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        safety_settings=self.safety_settings
+                    )
+                )
+                async for chunk in response_stream:
+                    if chunk and chunk.text:
+                        yield chunk.text
+                return
+            except Exception as e:
+                err_str = str(e)
+                logger.warning(f"Gemini streaming model '{selected_model}' failed: {e}")
+                if "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
+                    logger.error("Invalid Gemini API Key detected in streaming.")
+                    break
 
 # Singleton instance
 gemini_service = GeminiService()

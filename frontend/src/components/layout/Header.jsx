@@ -123,7 +123,6 @@ export function Header() {
                       <p className="text-sm font-medium text-gray-900">
                         {user?.username}
                       </p>
-                      <p className="text-xs text-gray-500">Account</p>
                     </div>
                     <svg
                       className={`w-4 h-4 text-gray-500 transition-transform ${showMenu ? "rotate-180" : ""

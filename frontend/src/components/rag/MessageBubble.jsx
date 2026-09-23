@@ -48,8 +48,9 @@ function processContent(text) {
 }
 
 export function MessageBubble(props) {
-  const { type, content, sources = [], query = "", onRegenerate } = props;
+  const { type, content, sources = [], query = "", thoughts, sqlQuery, onRegenerate } = props;
   const [showSources, setShowSources] = useState(false);
+  const [showThoughts, setShowThoughts] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const { showToast } = useToast();
@@ -69,7 +70,6 @@ export function MessageBubble(props) {
       setIsCopied(true);
       showToast({ type: "success", message: "Text copied to clipboard!" });
 
-      // Reset the copied state after 2 seconds
       setTimeout(() => {
         setIsCopied(false);
       }, 2000);
@@ -106,7 +106,7 @@ export function MessageBubble(props) {
     return (
       <div className="w-full mb-6 flex justify-end">
         <div className="bg-gray-100/80 rounded-[20px] rounded-tr-sm px-5 py-2.5 max-w-[85%] sm:max-w-[75%]">
-          <p className="text-gray-900 text-[15px] leading-relaxed break-words">
+          <p className="text-gray-900 text-sm leading-relaxed break-words">
             {content}
           </p>
         </div>
@@ -118,8 +118,38 @@ export function MessageBubble(props) {
     <div className="w-full mb-10 group">
       <div className="flex gap-4 w-full">
 
-
         <div className="flex-1 min-w-0">
+          {/* Thought Process Component */}
+          {thoughts && (
+            <div className="mb-3">
+              <button
+                onClick={() => setShowThoughts(!showThoughts)}
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-100 px-2.5 py-1 rounded-lg transition-all border border-slate-200/70"
+              >
+                <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 01-2 2h-4a2 2 0 01-2-2v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <span>Thought process</span>
+                <svg className={`w-3 h-3 text-slate-400 transition-transform ${showThoughts ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showThoughts && (
+                <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 space-y-1.5 animate-in fade-in duration-200">
+                  <div className="font-semibold text-slate-900 pb-1 border-b border-slate-200/60">Reasoning Steps</div>
+                  <div className="whitespace-pre-line text-slate-600 font-mono text-[11px] leading-relaxed">{thoughts}</div>
+                  {sqlQuery && (
+                    <div className="mt-2 pt-1.5 border-t border-slate-200">
+                      <span className="font-semibold text-slate-800">Generated SQL: </span>
+                      <code className="bg-slate-200/60 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">{sqlQuery}</code>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Render markdown content with custom styling */}
           <div className="prose max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-p:text-gray-900 prose-p:leading-relaxed prose-strong:text-gray-900 prose-strong:font-semibold prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-200 prose-ul:text-gray-900 prose-ol:text-gray-900 prose-li:text-gray-900">
             <ReactMarkdown
@@ -151,7 +181,7 @@ export function MessageBubble(props) {
                   <tr {...props} />
                 ),
                 th: ({ node, ...props }) => (
-                  <th {...props} className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" />
+                  <th {...props} className="px-3 py-2 text-left text-xs font-semibold text-gray-700 tracking-wider" />
                 ),
                 td: ({ node, ...props }) => (
                   <td {...props} className="px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap" />

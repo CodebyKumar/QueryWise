@@ -130,28 +130,79 @@ class GroqService:
             logger.error(f"Failed to generate chat title: {e}")
             return "New Chat"
         
-    async def generate_answer(self, prompt: str, api_key: str = None, model: str = None) -> str:
-        """Generates a text response based on a prompt using an async call."""
+    async def generate_answer(self, prompt: str, api_key: str = None, model: str = None) -> Optional[str]:
+        """Generates a text response based on a prompt using an async call with fallback models."""
         client = self._get_client(api_key)
         if not client:
             logger.error("Groq client could not be initialized (Missing Key).")
-            return "Sorry, the generation service is not available (Missing API Key)."
+            return None
             
-        selected_model = model or DEFAULT_MODEL_NAME
-        truncated_prompt = self.truncate_prompt_to_context_limit(prompt, model_name=selected_model)
+        models_to_try = []
+        if model and "gemini" not in model.lower():
+            models_to_try.append(model)
+        if DEFAULT_MODEL_NAME not in models_to_try:
+            models_to_try.append(DEFAULT_MODEL_NAME)
+        if "llama-3.1-8b-instant" not in models_to_try:
+            models_to_try.append("llama-3.1-8b-instant")
 
-        try:
-            usage_tracker.increment()
-            response = await client.chat.completions.create(
-                model=selected_model,
-                messages=[
-                    {"role": "user", "content": truncated_prompt}
-                ]
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"Failed to generate answer with model '{selected_model}': {e}")
-            return f"Sorry, I couldn't generate an answer at this time: {str(e)}"
+        for selected_model in models_to_try:
+            try:
+                truncated_prompt = self.truncate_prompt_to_context_limit(prompt, model_name=selected_model)
+                usage_tracker.increment()
+                response = await client.chat.completions.create(
+                    model=selected_model,
+                    messages=[
+                        {"role": "user", "content": truncated_prompt}
+                    ]
+                )
+                if response and response.choices and response.choices[0].message and response.choices[0].message.content:
+                    return response.choices[0].message.content
+            except Exception as e:
+                err_msg = str(e)
+                logger.warning(f"Groq model '{selected_model}' generation failed: {e}")
+                if "invalid_api_key" in err_msg.lower() or "authentication" in err_msg.lower():
+                    logger.error("Invalid Groq API key detected. Stopping model fallback loop.")
+                    break
+
+        logger.error(f"All Groq models failed for prompt.")
+        return None
+
+    async def generate_answer_stream(self, prompt: str, api_key: str = None, model: str = None):
+        """Generates a text response stream based on a prompt using an async call with fallback models."""
+        client = self._get_client(api_key)
+        if not client:
+            logger.error("Groq client could not be initialized (Missing Key).")
+            return
+
+        models_to_try = []
+        if model and "gemini" not in model.lower():
+            models_to_try.append(model)
+        if DEFAULT_MODEL_NAME not in models_to_try:
+            models_to_try.append(DEFAULT_MODEL_NAME)
+        if "llama-3.1-8b-instant" not in models_to_try:
+            models_to_try.append("llama-3.1-8b-instant")
+
+        for selected_model in models_to_try:
+            try:
+                truncated_prompt = self.truncate_prompt_to_context_limit(prompt, model_name=selected_model)
+                usage_tracker.increment()
+                stream = await client.chat.completions.create(
+                    model=selected_model,
+                    messages=[
+                        {"role": "user", "content": truncated_prompt}
+                    ],
+                    stream=True
+                )
+                async for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+                return
+            except Exception as e:
+                err_msg = str(e)
+                logger.warning(f"Groq streaming model '{selected_model}' generation failed: {e}")
+                if "invalid_api_key" in err_msg.lower() or "authentication" in err_msg.lower():
+                    logger.error("Invalid Groq API key detected in streaming.")
+                    break
 
     async def transcribe_audio(self, file_content: bytes, filename: str = "recording.webm", api_key: str = None, model: str = "whisper-large-v3-turbo") -> str:
         """

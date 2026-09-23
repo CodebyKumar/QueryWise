@@ -14,10 +14,13 @@ export function ChatInterface({
   onSessionUpdate,
   selectedDocuments = [],
   availableDocuments = [],
+  dbConnected = false,
   onAttachDocuments,
   onExport,
   onDeleteSession,
   onCreateSession,
+  showRightSidebar = false,
+  onToggleRightSidebar,
 }) {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,18 +38,21 @@ export function ChatInterface({
 
   useEffect(() => {
     const detectDefaultModel = async () => {
-      const savedModel = localStorage.getItem('preferred_model');
-      if (savedModel) return; // Respect user explicit choice if already set
-
       try {
         const userData = await authService.getCurrentUser();
         const providers = userData?.user?.configured_providers || [];
-        if (providers.includes('groq_api_key') && !providers.includes('google_api_key')) {
+        const savedModel = localStorage.getItem('preferred_model') || 'gemini-2.5-flash';
+        
+        const isGeminiSelected = savedModel.includes('gemini');
+        const hasGoogle = providers.includes('google_api_key');
+        const hasGroq = providers.includes('groq_api_key');
+
+        if (isGeminiSelected && !hasGoogle && hasGroq) {
           setSelectedModel('llama-3.3-70b-versatile');
-        } else if (providers.includes('google_api_key')) {
+        } else if (!isGeminiSelected && !hasGroq && hasGoogle) {
           setSelectedModel('gemini-2.5-flash');
-        } else if (providers.includes('groq_api_key')) {
-          setSelectedModel('llama-3.3-70b-versatile');
+        } else if (savedModel) {
+          setSelectedModel(savedModel);
         }
       } catch (err) {
         console.error('Failed to detect available API providers:', err);
@@ -91,8 +97,8 @@ export function ChatInterface({
   }, [messages, isLoading]);
 
   const handleSendMessage = async (query) => {
-    if (!validDocs || validDocs.length === 0) {
-      showToast({ type: "warning", message: "Please select at least one valid document from the sidebar to chat with" });
+    if (!dbConnected && (!validDocs || validDocs.length === 0)) {
+      showToast({ type: "warning", message: "Please select at least one document or enable Database connection" });
       return;
     }
 
@@ -107,45 +113,118 @@ export function ChatInterface({
     if (!activeSession) {
       if (!onCreateSession) {
         showToast({ type: "error", message: "Session creation unavailable" });
-        setIsLoading(false); // Reset loading if we can't create
-        setMessages((prev) => prev.slice(0, -1)); // Remove the optimistic message
+        setIsLoading(false);
+        setMessages((prev) => prev.slice(0, -1));
         return;
       }
       try {
-        // Create the session ON FIRST MESSAGE
         activeSession = await onCreateSession("New Chat");
         if (!activeSession) throw new Error("Failed to create session");
-        // Update local state immediately to prevent race conditions
         setCurrentSessionId(activeSession.session_id);
       } catch (error) {
         console.error("Failed to create lazy session:", error);
         showToast({ type: "error", message: "Failed to start new chat" });
-        setIsLoading(false); // Reset loading
-        setMessages((prev) => prev.slice(0, -1)); // Remove the optimistic message
+        setIsLoading(false);
+        setMessages((prev) => prev.slice(0, -1));
         return;
       }
     }
 
-    try {
-      // Use validDocs.map(d => d.filename) to only send existing documents
-      const response = await ragService.query(query, 5, activeSession.session_id, validDocs.map(d => d.filename), responseStyle, selectedModel);
-      if (!response || !response.answer) throw new Error("Invalid response from server");
+    // Create initial streaming assistant placeholder message
+    const assistantPlaceholder = {
+      role: "assistant",
+      content: "",
+      sources: [],
+      thoughts: null,
+      sqlQuery: null,
+      query: query,
+      timestamp: new Date().toISOString()
+    };
 
-      const assistantMessage = {
-        role: "assistant", content: response.answer, sources: response.sources || [],
-        query: query, timestamp: new Date().toISOString()
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      if (onSessionUpdate) onSessionUpdate();
+    setMessages((prev) => [...prev, assistantPlaceholder]);
+
+    try {
+      await ragService.queryStream(
+        query,
+        5,
+        activeSession.session_id,
+        validDocs.map(d => d.filename),
+        responseStyle,
+        selectedModel,
+        dbConnected,
+        (chunkText) => {
+          setIsLoading(false); // Hide typing indicator once tokens start arriving
+          setMessages((prev) => {
+            const newArr = [...prev];
+            const lastIdx = newArr.length - 1;
+            if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+              newArr[lastIdx] = {
+                ...newArr[lastIdx],
+                content: (newArr[lastIdx].content || "") + chunkText
+              };
+            }
+            return newArr;
+          });
+        },
+        (meta) => {
+          setMessages((prev) => {
+            const newArr = [...prev];
+            const lastIdx = newArr.length - 1;
+            if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+              newArr[lastIdx] = {
+                ...newArr[lastIdx],
+                sources: meta.sources || [],
+                thoughts: meta.thoughts,
+                sqlQuery: meta.sql_query
+              };
+            }
+            return newArr;
+          });
+        }
+      );
+
+      if (onSessionUpdate) onSessionUpdate(activeSession.session_id);
     } catch (error) {
-      const apiError = error.response?.data?.detail || error.response?.data?.answer || error.message;
-      const errorMessage = {
-        role: "assistant",
-        content: `❌ **Error:** ${apiError || 'Something went wrong.'}`,
-        timestamp: new Date().toISOString(),
-        isError: true
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.warn("Streaming failed, attempting fallback query...", error);
+      try {
+        const response = await ragService.query(
+          query, 5, activeSession.session_id, validDocs.map(d => d.filename), responseStyle, selectedModel, dbConnected
+        );
+        if (response && response.answer) {
+          setMessages((prev) => {
+            const newArr = [...prev];
+            const lastIdx = newArr.length - 1;
+            if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+              newArr[lastIdx] = {
+                role: "assistant", 
+                content: response.answer, 
+                sources: response.sources || [],
+                thoughts: response.thoughts,
+                sqlQuery: response.sql_query,
+                query: query, 
+                timestamp: new Date().toISOString()
+              };
+            }
+            return newArr;
+          });
+          if (onSessionUpdate) onSessionUpdate(activeSession.session_id);
+        }
+      } catch (fallbackErr) {
+        const apiError = fallbackErr.response?.data?.detail || fallbackErr.message;
+        setMessages((prev) => {
+          const newArr = [...prev];
+          const lastIdx = newArr.length - 1;
+          if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+            newArr[lastIdx] = {
+              role: "assistant",
+              content: `❌ **Error:** ${apiError || 'Something went wrong.'}`,
+              timestamp: new Date().toISOString(),
+              isError: true
+            };
+          }
+          return newArr;
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -154,37 +233,100 @@ export function ChatInterface({
   const handleRegenerate = async () => {
     if (isLoading || messages.length === 0 || !session) return;
 
-    // Find the last user message to re-send
     const lastUserMsgIndex = messages.findLastIndex(m => m.role === 'user');
     if (lastUserMsgIndex === -1) return;
 
     const query = messages[lastUserMsgIndex].content;
 
-    // Remove all messages after the last user message (essentially removing the last response(s))
-    // We keep the user message so we don't need to re-add it like handleSendMessage does
     setMessages(prev => prev.slice(0, lastUserMsgIndex + 1));
     setIsLoading(true);
 
-    try {
-      const response = await ragService.query(query, 5, session.session_id, validDocs.map(d => d.filename), responseStyle, selectedModel);
-      if (!response || !response.answer) throw new Error("Invalid response from server");
+    const assistantPlaceholder = {
+      role: "assistant",
+      content: "",
+      sources: [],
+      thoughts: null,
+      sqlQuery: null,
+      query: query,
+      timestamp: new Date().toISOString()
+    };
+    setMessages((prev) => [...prev, assistantPlaceholder]);
 
-      const assistantMessage = {
-        role: "assistant", content: response.answer, sources: response.sources || [],
-        query: query, timestamp: new Date().toISOString()
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      if (onSessionUpdate) onSessionUpdate();
+    try {
+      await ragService.queryStream(
+        query,
+        5,
+        session.session_id,
+        validDocs.map(d => d.filename),
+        responseStyle,
+        selectedModel,
+        dbConnected,
+        (chunkText) => {
+          setIsLoading(false);
+          setMessages((prev) => {
+            const newArr = [...prev];
+            const lastIdx = newArr.length - 1;
+            if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+              newArr[lastIdx] = {
+                ...newArr[lastIdx],
+                content: (newArr[lastIdx].content || "") + chunkText
+              };
+            }
+            return newArr;
+          });
+        },
+        (meta) => {
+          setMessages((prev) => {
+            const newArr = [...prev];
+            const lastIdx = newArr.length - 1;
+            if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+              newArr[lastIdx] = {
+                ...newArr[lastIdx],
+                sources: meta.sources || [],
+                thoughts: meta.thoughts,
+                sqlQuery: meta.sql_query
+              };
+            }
+            return newArr;
+          });
+        }
+      );
+
+      if (onSessionUpdate) onSessionUpdate(session.session_id);
     } catch (error) {
-      // ... error handling similar to handleSendMessage ...
-      const apiError = error.response?.data?.detail || error.response?.data?.answer || error.message;
-      const errorMessage = {
-        role: "assistant",
-        content: `❌ **Error:** ${apiError || 'Something went wrong.'}`,
-        timestamp: new Date().toISOString(),
-        isError: true
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.warn("Regenerate stream failed, trying fallback...", error);
+      try {
+        const response = await ragService.query(query, 5, session.session_id, validDocs.map(d => d.filename), responseStyle, selectedModel, dbConnected);
+        if (response && response.answer) {
+          setMessages((prev) => {
+            const newArr = [...prev];
+            const lastIdx = newArr.length - 1;
+            if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+              newArr[lastIdx] = {
+                role: "assistant", content: response.answer, sources: response.sources || [],
+                query: query, timestamp: new Date().toISOString()
+              };
+            }
+            return newArr;
+          });
+          if (onSessionUpdate) onSessionUpdate(session.session_id);
+        }
+      } catch (fallbackErr) {
+        const apiError = fallbackErr.response?.data?.detail || fallbackErr.message;
+        setMessages((prev) => {
+          const newArr = [...prev];
+          const lastIdx = newArr.length - 1;
+          if (lastIdx >= 0 && newArr[lastIdx].role === "assistant") {
+            newArr[lastIdx] = {
+              role: "assistant",
+              content: `❌ **Error:** ${apiError || 'Something went wrong.'}`,
+              timestamp: new Date().toISOString(),
+              isError: true
+            };
+          }
+          return newArr;
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -192,56 +334,84 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Desktop Header - Export & Delete Actions */}
+      {/* Desktop Header - Export, Delete & Notes Toggle Actions */}
       <div className="h-[73px] hidden md:flex items-center justify-between px-8 bg-white/80 backdrop-blur-md border-b border-gray-100 z-30 sticky top-0">
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-semibold text-gray-800 truncate">
             {session?.title || "New Chat"}
           </h1>
-          <div className="relative">
-            {docCount > 0 ? (
-              <button
-                onClick={() => setShowDocDropdown(!showDocDropdown)}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 px-2.5 py-1 rounded-md transition-all border border-transparent hover:border-gray-200"
-              >
-                <span>Referencing {docCount} document{docCount !== 1 ? 's' : ''}</span>
-                <svg
-                  className={`w-3.5 h-3.5 transition-transform ${showDocDropdown ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="relative">
+              {docCount > 0 ? (
+                <button
+                  onClick={() => setShowDocDropdown(!showDocDropdown)}
+                  className="flex items-center gap-1.5 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-md transition-all border border-orange-200 font-medium"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            ) : (
-              <p className="text-xs text-gray-400">No documents selected</p>
-            )}
+                  <span>Referencing {docCount} document{docCount !== 1 ? 's' : ''}</span>
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform ${showDocDropdown ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              ) : (
+                <p className="text-xs text-gray-400">No documents selected</p>
+              )}
 
-            {showDocDropdown && docCount > 0 && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowDocDropdown(false)} />
-                <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="px-3 py-1.5 border-b border-gray-50 mb-1">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Selected Documents</p>
+              {showDocDropdown && docCount > 0 && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDocDropdown(false)} />
+                  <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-3 py-1.5 border-b border-gray-50 mb-1">
+                      <p className="text-xs font-semibold text-gray-600">Selected Documents</p>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {validDocs.map((doc, idx) => (
+                        <div key={idx} className="px-4 py-2 hover:bg-gray-50 flex items-center gap-2.5 group">
+                          <svg className="w-4 h-4 text-orange-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-sm text-gray-700 font-medium truncate group-hover:text-gray-900">{doc.title || doc.filename}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    {validDocs.map((doc, idx) => (
-                      <div key={idx} className="px-4 py-2 hover:bg-gray-50 flex items-center gap-2.5 group">
-                        <svg className="w-4 h-4 text-orange-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm text-gray-700 font-medium truncate group-hover:text-gray-900">{doc.title || doc.filename}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
+                </>
+              )}
+            </div>
+
+            {dbConnected && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                DB Pipeline Active
+              </span>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Notes Toggle Button */}
+          {onToggleRightSidebar && (
+            <button
+              onClick={onToggleRightSidebar}
+              className={`p-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium ${
+                showRightSidebar
+                  ? "text-orange-600 bg-orange-50 border border-orange-200"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent"
+              }`}
+              title={showRightSidebar ? "Hide notes sidebar" : "Show notes sidebar"}
+              aria-label="Toggle notes"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span>Notes</span>
+            </button>
+          )}
+
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}

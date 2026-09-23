@@ -69,7 +69,10 @@ class ChatSessionService:
             logger.error(f"Error getting session {session_id}: {e}")
             return None
     
-    async def add_message(self, session_id: str, username: str, role: str, content: str, sources: Optional[List[dict]] = None) -> bool:
+    async def add_message(
+        self, session_id: str, username: str, role: str, content: str, 
+        sources: Optional[List[dict]] = None, metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Add a message to a session."""
         try:
             collection = await self.get_collection()
@@ -81,6 +84,8 @@ class ChatSessionService:
                 "timestamp": datetime.now().isoformat(),
                 "sources": sources
             }
+            if metadata:
+                message["metadata"] = metadata
             
             # Update operation
             update_ops = {
@@ -107,10 +112,9 @@ class ChatSessionService:
             collection = await self.get_collection()
             session = await collection.find_one({"session_id": session_id, "username": username})
             
-            if session and session.get("title") == "New Chat":
+            if session and (not session.get("title") or session.get("title") == "New Chat"):
                 from service.rag.gemini_service import gemini_service
                 from service.rag.groq_service import groq_service
-                
                 from lib.config import settings
                 
                 user_groq_key = api_keys.get("groq_api_key") if isinstance(api_keys, dict) else None
@@ -133,6 +137,14 @@ class ChatSessionService:
                         except Exception as e:
                             logger.warning(f"Gemini chat title generation failed: {e}")
                 
+                # Guaranteed fallback if AI title generation fails or returns 'New Chat'
+                if not new_title or new_title == "New Chat":
+                    clean_words = content.strip().split()
+                    if clean_words:
+                        new_title = " ".join(clean_words[:5])
+                        if len(new_title) > 35:
+                            new_title = new_title[:32] + "..."
+
                 if new_title and new_title != "New Chat":
                     await collection.update_one(
                         {"session_id": session_id},

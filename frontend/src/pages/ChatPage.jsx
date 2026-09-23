@@ -27,6 +27,7 @@ export function ChatPage() {
   const location = useLocation();
 
   const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [dbConnected, setDbConnected] = useState(false);
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [showUploadInSidebar, setShowUploadInSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
@@ -189,7 +190,7 @@ export function ChatPage() {
                   ? "translate-x-0"
                   : "-translate-x-full md:translate-x-0"
                 }
-          w-[280px] sm:w-72 md:w-64
+          w-80 sm:w-80 md:w-80 shrink-0
         `}
             >
               <ChatSidebar
@@ -204,6 +205,8 @@ export function ChatPage() {
                 onUploadSuccess={handleUploadSuccess}
                 selectedDocuments={selectedDocuments}
                 onDocumentSelectionChange={handleDocumentSelectionChange}
+                dbConnected={dbConnected}
+                onDbConnectedChange={setDbConnected}
                 onClose={() => setShowLeftSidebar(false)}
                 showUpload={showUploadInSidebar}
                 onShowUploadChange={setShowUploadInSidebar}
@@ -260,7 +263,6 @@ export function ChatPage() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                  {/* Delete Chat Button - Only show if there's a current session */}
                   {currentSession && (
                     <button
                       onClick={() => handleDeleteSession(currentSessionId)}
@@ -273,7 +275,6 @@ export function ChatPage() {
                     </button>
                   )}
 
-                  {/* Export Chat Button */}
                   {currentSession && (
                     <div className="relative group">
                       <button
@@ -284,7 +285,6 @@ export function ChatPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                       </button>
-                      {/* Dropdown for Export */}
                       <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-1 hidden group-hover:block z-50">
                         <button onClick={() => handleExport('markdown')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700">Markdown</button>
                         <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700">PDF</button>
@@ -293,7 +293,7 @@ export function ChatPage() {
                   )}
 
                   <button
-                    onClick={() => setShowRightSidebar(true)}
+                    onClick={() => setShowRightSidebar(!showRightSidebar)}
                     className="p-2 -mr-2 text-gray-400 hover:text-orange-600 transition-colors"
                     aria-label="Toggle notes"
                   >
@@ -306,9 +306,10 @@ export function ChatPage() {
 
               <ChatInterface
                 session={currentSession}
-                onSessionUpdate={refreshCurrentSession}
+                onSessionUpdate={(id) => refreshCurrentSession(id)}
                 onTitleUpdate={(newTitle) => handleRenameSession(currentSessionId, newTitle)}
                 selectedDocuments={selectedDocuments}
+                dbConnected={dbConnected}
                 availableDocuments={allDocuments}
                 onAttachDocuments={() => {
                   setShowLeftSidebar(true);
@@ -317,26 +318,25 @@ export function ChatPage() {
                 onExport={handleExport}
                 onDeleteSession={() => handleDeleteSession(currentSessionId)}
                 onCreateSession={createSession}
+                showRightSidebar={showRightSidebar}
+                onToggleRightSidebar={() => setShowRightSidebar(!showRightSidebar)}
               />
             </div>
 
-            {/* Right Sidebar - Flexible Sidebar */}
-            <div
-              className={`
-          fixed md:relative inset-y-0 right-0 z-[70] md:z-30
-          transform transition-transform duration-300 ease-in-out
-          ${showRightSidebar
-                  ? "translate-x-0 outline-none shadow-2xl"
-                  : "translate-x-full md:translate-x-0"
-                }
-          w-full sm:w-80 md:w-auto
-        `}
-            >
-              <RightSidebar
-                sessionId={currentSessionId}
-                onClose={() => setShowRightSidebar(false)}
-              />
-            </div>
+            {/* Right Sidebar - Closed by default */}
+            {showRightSidebar && (
+              <div
+                className="fixed md:relative inset-y-0 right-0 z-[70] md:z-30 w-full sm:w-80 md:w-80 border-l border-gray-200 bg-white shadow-xl transition-all shrink-0"
+              >
+                <RightSidebar
+                  sessionId={currentSessionId}
+                  selectedDocuments={selectedDocuments}
+                  allDocuments={allDocuments}
+                  dbConnected={dbConnected}
+                  onClose={() => setShowRightSidebar(false)}
+                />
+              </div>
+            )}
 
             {/* Overlay for mobile right sidebar */}
             {showRightSidebar && (

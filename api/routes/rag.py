@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Body
+from fastapi.responses import StreamingResponse
 from typing import Dict, Any, List, Optional
 from schema.rag_schema import DocumentPayload, QueryRequest, QueryResponse
 from controller.rag_controller import rag_controller
@@ -78,6 +79,25 @@ async def query_documents(
     This is a protected endpoint and requires authentication.
     """
     return await rag_controller.orchestrate_rag_flow(query_request, current_user, session_id, documents)
+
+
+@router.post(
+    "/query-stream",
+    summary="Ask a question to the RAG system with streaming response"
+)
+async def query_documents_stream(
+    query_request: QueryRequest,
+    session_id: Optional[str] = Query(None, description="Session ID to save conversation"),
+    documents: Optional[List[str]] = Query(None, description="List of document IDs to filter retrieval"),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Streaming version of /rag/query delivering response tokens as Server-Sent Events.
+    """
+    return StreamingResponse(
+        rag_controller.orchestrate_rag_flow_stream(query_request, current_user, session_id, documents),
+        media_type="text/event-stream"
+    )
 
 
 @router.get(

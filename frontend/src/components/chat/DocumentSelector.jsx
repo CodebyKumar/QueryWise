@@ -45,24 +45,26 @@ export function DocumentSelector({ selectedDocs, onSelectionChange }) {
   );
 
   return (
-    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/30">
+    <div className="px-4 py-1.5">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-white hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-gray-200"
+        className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all border ${
+          isExpanded
+            ? 'bg-orange-50/70 border border-orange-200 text-gray-900 font-medium'
+            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+        }`}
       >
         <span className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <span>Select Documents</span>
           {selectedDocs.filter(id => documents.some(d => d.filename === id)).length > 0 && (
-            <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {selectedDocs.filter(id => documents.some(d => d.filename === id)).length}
-            </span>
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" title={`${selectedDocs.length} selected`}></span>
           )}
         </span>
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180 text-orange-600' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -72,18 +74,18 @@ export function DocumentSelector({ selectedDocs, onSelectionChange }) {
       </button>
 
       {isExpanded && (
-        <div className="mt-3 space-y-2 bg-white rounded-lg p-3 border border-gray-200">
+        <div className="mt-2 space-y-2 bg-white rounded-lg p-3 border border-gray-200">
           {loading ? (
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-              <span className="ml-2 text-xs text-gray-500">Loading documents...</span>
+              <span className="ml-2 text-sm text-gray-500">Loading documents...</span>
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-4">
               <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <p className="text-xs text-gray-500">No documents uploaded</p>
+              <p className="text-sm text-gray-500">No documents uploaded</p>
             </div>
           ) : (
             <>
@@ -95,7 +97,7 @@ export function DocumentSelector({ selectedDocs, onSelectionChange }) {
                     placeholder="Search documents..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 pl-9 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 pl-9 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -105,7 +107,7 @@ export function DocumentSelector({ selectedDocs, onSelectionChange }) {
                       onClick={() => setSearchQuery('')}
                       className="absolute right-2 top-2 p-0.5 hover:bg-gray-100 rounded"
                     >
-                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -116,13 +118,13 @@ export function DocumentSelector({ selectedDocs, onSelectionChange }) {
               <div className="flex gap-2 pb-2 border-b border-gray-100">
                 <button
                   onClick={selectAll}
-                  className="flex-1 text-xs px-3 py-1.5 font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-blue-200"
+                  className="flex-1 text-sm px-3 py-1.5 font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-blue-200"
                 >
                   Select All
                 </button>
                 <button
                   onClick={clearAll}
-                  className="flex-1 text-xs px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors border border-gray-200"
+                  className="flex-1 text-sm px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors border border-gray-200"
                 >
                   Clear
                 </button>
@@ -130,29 +132,29 @@ export function DocumentSelector({ selectedDocs, onSelectionChange }) {
 
               {filteredDocuments.length === 0 ? (
                 <div className="text-center py-4">
-                  <p className="text-xs text-gray-500">No documents found</p>
+                  <p className="text-sm text-gray-500">No documents found</p>
                 </div>
               ) : (
-                <div className="max-h-48 overflow-y-auto space-y-1 pt-1">
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pt-1">
                   {filteredDocuments.map((doc) => (
                     <label
                       key={doc.filename}
-                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-pointer transition-all ${selectedDocs.includes(doc.filename)
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'hover:bg-gray-50 border border-transparent'
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-all border ${selectedDocs.includes(doc.filename)
+                          ? 'bg-blue-50/80 border-blue-300'
+                          : 'hover:bg-gray-50 border-gray-200'
                         }`}
                     >
                       <input
                         type="checkbox"
                         checked={selectedDocs.includes(doc.filename)}
                         onChange={() => toggleDocument(doc.filename)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 shrink-0 cursor-pointer"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">{doc.title}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate">{doc.title}</p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           <span className="inline-flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                             </svg>
                             {doc.chunks} chunks

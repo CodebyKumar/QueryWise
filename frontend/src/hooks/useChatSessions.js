@@ -68,18 +68,11 @@ export function useChatSessions() {
       await chatService.deleteSession(sessionId);
       setSessions(prev => prev.filter(s => s.session_id !== sessionId));
 
-      // If deleted current session, select another
+      // Always switch to a fresh empty chat view when deleting current chat
       if (currentSessionId === sessionId) {
-        const remaining = sessions.filter(s => s.session_id !== sessionId);
-        if (remaining.length > 0) {
-          setCurrentSessionId(remaining[0].session_id);
-        } else {
-          setCurrentSessionId(null);
-          setCurrentSession(null);
-        }
+        setCurrentSessionId(null);
+        setCurrentSession(null);
       }
-
-      // Toast removed - deletion is obvious from UI change
     } catch (error) {
       showToast({ type: 'error', message: 'Failed to delete session' });
     }
@@ -159,10 +152,10 @@ export function useChatSessions() {
     deleteSession,
     selectSession,
     refreshSessions: loadSessions,
-    refreshCurrentSession: async () => {
-      // Refresh both current session and sessions list (for title update)
+    refreshCurrentSession: async (targetSessionId) => {
+      const idToLoad = targetSessionId || currentSessionId;
       await Promise.all([
-        loadSession(currentSessionId),
+        idToLoad ? loadSession(idToLoad) : Promise.resolve(),
         loadSessions()
       ]);
     }

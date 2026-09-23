@@ -15,16 +15,30 @@ export function ToastProvider({ children }) {
       // Legacy pattern: showToast(message, type)
       message = messageOrOptions;
       type = typeOrDuration || 'info';
-      duration = 4000;
+      duration = 3500;
     } else {
       // New pattern: showToast({ message, type, duration })
-      message = messageOrOptions.message;
-      type = messageOrOptions.type || 'info';
-      duration = messageOrOptions.duration !== undefined ? messageOrOptions.duration : 4000;
+      message = messageOrOptions?.message;
+      type = messageOrOptions?.type || 'info';
+      duration = messageOrOptions?.duration !== undefined ? messageOrOptions.duration : 3500;
     }
 
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, type, message }]);
+    if (!message) return;
+
+    const id = Date.now() + Math.random();
+
+    setToasts(prev => {
+      // Avoid duplicate toasts with identical messages stacking up
+      if (prev.some(t => t.message === message)) {
+        return prev;
+      }
+      const updated = [...prev, { id, type, message }];
+      // Cap visible toasts at 3 maximum
+      if (updated.length > 3) {
+        return updated.slice(updated.length - 3);
+      }
+      return updated;
+    });
 
     if (duration > 0) {
       setTimeout(() => {
@@ -40,7 +54,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
-      <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:bottom-4 z-50 flex flex-col gap-2 md:max-w-md pointer-events-none">
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
         {toasts.map(toast => (
           <Toast key={toast.id} {...toast} onClose={() => removeToast(toast.id)} />
         ))}

@@ -94,6 +94,34 @@ class RAGController:
                 detail=f"Failed to delete documents: {str(e)}",
             )
 
+    async def _ensure_db_connection(self, connection_id: Optional[str] = None) -> Optional[str]:
+        from controller.query_controller import query_controller
+        from schema.query_schema import DatabaseConnectionRequest
+        import os
+
+        conn_id = connection_id
+        if conn_id and conn_id in query_controller._schema_cache:
+            return conn_id
+            
+        if query_controller._schema_cache:
+            return list(query_controller._schema_cache.keys())[0]
+
+        # Auto-connect to workspace test_ecommerce.db if available
+        db_path = os.path.abspath(os.path.join(settings.BASE_DIR, "..", "test_ecommerce.db"))
+        if os.path.exists(db_path):
+            sqlite_uri = f"sqlite:///{db_path}"
+            logger.info(f"Auto-connecting DB pipeline to workspace database: {sqlite_uri}")
+            try:
+                conn_res = await query_controller.connect_to_database(
+                    DatabaseConnectionRequest(connection_string=sqlite_uri)
+                )
+                if conn_res and conn_res.success:
+                    return conn_res.connection_id
+            except Exception as e:
+                logger.warning(f"Auto-connection to {db_path} failed: {e}")
+                
+        return None
+
     async def orchestrate_rag_flow(
         self, query_request: QueryRequest, user: Dict[str, Any], session_id: Optional[str] = None, documents: Optional[List[str]] = None
     ) -> QueryResponse:
@@ -121,12 +149,14 @@ class RAGController:
         logger.info(f"User '{username}' query: '{query[:50]}...' | style: '{response_style}' | top_k: {top_k} | multiplier: {retrieval_multiplier}")
         logger.info(f"Document filter: {documents} (type: {type(documents)})")
         
-        # If documents is an empty list, treat it as None (Search All) rather than "filter by nothing"
-        if documents is not None and len(documents) == 0:
-            documents = None
-
-        if documents:
-            logger.info(f"Filtering to {len(documents)} documents: {documents}")
+        doc_selection = query_request.selected_documents if query_request.selected_documents is not None else documents
+        
+        skip_vector_search = False
+        if doc_selection is not None and len(doc_selection) == 0:
+            skip_vector_search = True
+            logger.info("User explicitly selected 0 documents. Skipping vector document search.")
+        elif doc_selection:
+            logger.info(f"Filtering vector search to {len(doc_selection)} selected documents: {doc_selection}")
 
         try:
             # Get chat history if session_id is provided
@@ -137,76 +167,85 @@ class RAGController:
                     chat_history = session['messages']
                     logger.info(f"Loaded {len(chat_history)} messages from chat history")
             
-            # 1. [Pre-Retrieval Module] Enhance the query (e.g., with HyDE)
-            try:
-                enhanced_query = await rag_service.pre_retrieval_module(query, api_keys=api_keys)
-            except Exception as e:
-                logger.warning(f"Pre-retrieval failed: {e}. Using original query.")
-                enhanced_query = query
-            
-            # Get user documents to provide high-level context
-            user_docs = await user_documents_service.get_user_documents(username)
-            
-            # Filter based on selected documents if provided
-            if documents:
-                user_docs = [doc for doc in user_docs if doc.get('filename') in documents]
-                
-            current_doc_descriptions = [
-                f"{doc.get('title', 'Untitled')}: {doc.get('description', 'No description')}" 
-                for doc in user_docs 
-                if doc.get('description')
-            ]
+            user_docs = []
+            current_doc_descriptions = []
+            final_context_chunks = []
 
-            # 2. [Retrieval Module] Retrieve documents with enhanced diversity and relevance filtering
-            # Use retrieval_multiplier to cast a wider net for better quality selection
-            retrieval_pool_size = min(top_k * retrieval_multiplier, 50)  # Cap at 50 for performance
-            
-            retrieved_chunks = await rag_service.retrieval_module(
-                enhanced_query, 
-                top_k=retrieval_pool_size, 
-                username=username, 
-                documents=documents,
-                similarity_threshold=0.3  # Filter out very low relevance matches
-            )
+            # 1. Handle Document Retrieval only if vector search is not skipped
+            if not skip_vector_search:
+                user_docs = await user_documents_service.get_user_documents(username)
+                if doc_selection:
+                    user_docs = [doc for doc in user_docs if doc.get('filename') in doc_selection]
+                    
+                current_doc_descriptions = [
+                    f"{doc.get('title', 'Untitled')}: {doc.get('description', 'No description')}" 
+                    for doc in user_docs 
+                    if doc.get('description')
+                ]
 
-            # Handle case where no documents are retrieved
-            # NEW STRATEGY: If no chunks found, but user has documents, let the LLM answer using 
-            # the document descriptions/summaries. This allows for general questions about what documents exist.
-            if not retrieved_chunks:
-                logger.warning(f"No documents retrieved for query: '{query}'. Proceeding with document summaries only.")
-                
-                if not user_docs:
-                     return QueryResponse(
-                        answer="You haven't uploaded any documents yet. Please upload a document to start chatting.",
-                        sources=[]
+                try:
+                    enhanced_query = await rag_service.pre_retrieval_module(query, api_keys=api_keys)
+                except Exception as e:
+                    logger.warning(f"Pre-retrieval failed: {e}. Using original query.")
+                    enhanced_query = query
+
+                retrieval_pool_size = min(top_k * retrieval_multiplier, 50)
+                retrieved_chunks = await rag_service.retrieval_module(
+                    enhanced_query, 
+                    top_k=retrieval_pool_size, 
+                    username=username, 
+                    documents=doc_selection,
+                    similarity_threshold=0.3
+                )
+
+                if retrieved_chunks:
+                    reranked_chunks = await rag_service.post_retrieval_module(
+                        retrieved_chunks, 
+                        query,
+                        target_count=top_k,
+                        min_relevance_score=0.35
                     )
-                # We will proceed to generation with empty chunks but populated descriptions
+                    final_context_chunks = reranked_chunks if reranked_chunks else []
 
+            # 2. Handle Database Integration if db_connected is True
+            db_sql_query = None
+            db_sql_results = None
+            if query_request.db_connected:
+                try:
+                    from controller.query_controller import query_controller
+                    from schema.query_schema import NaturalLanguageQueryRequest
+                    
+                    conn_id = await self._ensure_db_connection(query_request.connection_id)
+                    
+                    if conn_id and conn_id in query_controller._schema_cache:
+                        logger.info(f"DB Connected: Inspecting schema & executing query on connection {conn_id}")
+                        schema_obj = query_controller._schema_cache[conn_id]
+                        fmt_schema = query_controller.sql_analysis_service.format_schema_for_llm(schema_obj)
+                        current_doc_descriptions.append(f"Connected Database Structure:\n{fmt_schema}")
 
-            # 3. [Post-Retrieval Module] Rerank with adaptive selection based on quality
-            #    Note: Reranking is done on the ORIGINAL query for maximum accuracy.
-            reranked_chunks = await rag_service.post_retrieval_module(
-                retrieved_chunks, 
-                query,
-                target_count=top_k,
-                min_relevance_score=0.35  # Only keep reasonably relevant chunks
-            )
-            
-            # Use the adaptively selected chunks (already filtered by quality)
-            final_context_chunks = reranked_chunks if reranked_chunks else []
+                        req = NaturalLanguageQueryRequest(
+                            connection_id=conn_id,
+                            natural_language_query=query,
+                            model=query_request.model
+                        )
+                        db_res = await query_controller.execute_natural_language_query(req)
+                        if db_res and db_res.success:
+                            db_sql_query = db_res.generated_sql
+                            db_sql_results = db_res.results
+                            current_doc_descriptions.append(
+                                f"Executed SQL Query: `{db_sql_query}`\nSQL Execution Results: {db_sql_results}"
+                            )
+                except Exception as db_err:
+                    logger.warning(f"Database query execution in RAG flow skipped: {db_err}")
 
-            # Handle case where reranking returns empty results
-            if not final_context_chunks and not current_doc_descriptions:
-                 logger.warning(f"No relevant context after reranking for query: '{query}' and no document summaries available.")
-                 return QueryResponse(
-                    answer="I found some documents but none seem relevant to your specific question. Please try rephrasing your query.",
+            # Check if we have no context at all
+            if not final_context_chunks and not current_doc_descriptions and not query_request.db_connected:
+                return QueryResponse(
+                    answer="No active documents or database selected. Please select a document or connect a database to ask questions.",
                     sources=[]
                 )
-            
-            # If we have descriptions but no chunks, we proceed to generation
 
-
-            # 4. [Generation Module] Generate the answer from the refined context with chat history and response style
+            # 3. Generate answer using refined context
             final_answer = await rag_service.generation_module(
                 query=query, 
                 context_chunks=final_context_chunks, 
@@ -215,47 +254,55 @@ class RAGController:
                 api_keys=api_keys
             )
             
-            # 5. Format the sources for the final response
+            # 5. Format the sources strictly from matched vector chunks
             sources = []
-            if final_context_chunks:
+            if not skip_vector_search and final_context_chunks:
                 for chunk in final_context_chunks:
                     metadata = chunk.get('metadata', {})
+                    rerank_sc = chunk.get('final_score', chunk.get('score', 0.0))
+                    vector_sc = chunk.get('retrieval_score', chunk.get('score', 0.0))
                     sources.append(SourceDocument(
-                        id=chunk.get('id', 'unknown_id'),
+                        id=str(chunk.get('id', 'chunk')),
                         content=metadata.get('content', ''),
                         title=metadata.get('title'),
-                        score=float(chunk.get('final_score', chunk.get('score', 0.0))),
-                        retrieval_score=float(chunk.get('retrieval_score', 0.0))
+                        score=float(rerank_sc) if rerank_sc is not None else 0.0,
+                        retrieval_score=float(vector_sc) if vector_sc is not None else 0.0
                     ))
-            elif user_docs:
-                # Fallback: If no chunks were used but we had documents (and presumably used their descriptions),
-                # list them as sources so the user knows what was considered.
-                # We limit to 5 to avoid cluttering the UI if there are many.
-                for doc in user_docs[:5]:
-                    sources.append(SourceDocument(
-                        id=str(doc.get('_id', 'unknown')),
-                        content=doc.get('description', 'Document Overview/Summary'),
-                        title=doc.get('title'),
-                        score=1.0
-                    ))
-            
-            # Skip appending sources to the final answer for visibility in chat
 
+            # Build thought process steps
+            thoughts_list = []
+            if documents:
+                thoughts_list.append(f"• Document Search: Filtered retrieval to {len(documents)} selected document(s). Retrieved {len(final_context_chunks)} relevant chunk(s).")
+            else:
+                thoughts_list.append(f"• Document Search: Evaluated all available documents. Retrieved {len(final_context_chunks)} relevant chunk(s).")
+            
+            if query_request.db_connected:
+                if db_sql_query:
+                    thoughts_list.append(f"• Database Query: Generated SQL `{db_sql_query}` and retrieved {len(db_sql_results or [])} row(s).")
+                else:
+                    thoughts_list.append("• Database Connection: Active database context enabled for query.")
+            
+            thoughts_list.append("• Hybrid Synthesis: Integrated document passages and database knowledge into unified response.")
+            thoughts_str = "\n".join(thoughts_list)
 
             # Save to chat session if session_id provided
             if session_id:
-                # Add user message
                 await chat_session_service.add_message(session_id, username, "user", query)
-                
-                # Check if we need to update title (first message heuristic done in service now or helper)
-                # Pass API keys for title generation
                 await chat_session_service.update_session_title_if_needed(session_id, username, query, api_keys)
 
-                # Add assistant message with sources
                 sources_dict = [s.model_dump() for s in sources]
-                await chat_session_service.add_message(session_id, username, "assistant", final_answer, sources_dict)
+                await chat_session_service.add_message(
+                    session_id, username, "assistant", final_answer, sources_dict,
+                    metadata={"thoughts": thoughts_str, "sql_query": db_sql_query, "db_connected": query_request.db_connected}
+                )
                 
-            return QueryResponse(answer=final_answer, sources=sources)
+            return QueryResponse(
+                answer=final_answer, 
+                sources=sources, 
+                thoughts=thoughts_str,
+                sql_query=db_sql_query,
+                sql_results=db_sql_results
+            )
             
         except Exception as e:
             logger.error(f"Error in RAG flow for user '{user.get('username')}': {e}")
@@ -263,6 +310,178 @@ class RAGController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An error occurred while processing your query. Please try again.",
             )
+
+    async def orchestrate_rag_flow_stream(
+        self, query_request: QueryRequest, user: Dict[str, Any], session_id: Optional[str] = None, documents: Optional[List[str]] = None
+    ):
+        """
+        Streaming version of orchestrate_rag_flow yielding SSE data chunks.
+        """
+        import json
+        query = query_request.query
+        top_k = query_request.top_k
+        response_style = query_request.response_style or "auto"
+        retrieval_multiplier = query_request.retrieval_multiplier or 2
+        username = user.get('username')
+        api_keys = user.get('api_keys', {})
+        api_keys['model'] = query_request.model
+        
+        api_keys['google_api_key'] = self._resolve_and_log_key(
+            api_keys, 'google_api_key', settings.google_api_key, 'Google', username
+        )
+        api_keys['groq_api_key'] = self._resolve_and_log_key(
+            api_keys, 'groq_api_key', settings.groq_api_key, 'Groq', username
+        )
+
+        doc_selection = query_request.selected_documents if query_request.selected_documents is not None else documents
+
+        skip_vector_search = False
+        if doc_selection is not None and len(doc_selection) == 0:
+            skip_vector_search = True
+            logger.info("User explicitly selected 0 documents in stream. Skipping vector document search.")
+        elif doc_selection:
+            logger.info(f"Filtering stream vector search to {len(doc_selection)} selected documents: {doc_selection}")
+
+        try:
+            chat_history = []
+            if session_id:
+                session = await chat_session_service.get_session(session_id, username)
+                if session and session.get('messages'):
+                    chat_history = session['messages']
+            
+            user_docs = []
+            current_doc_descriptions = []
+            final_context_chunks = []
+
+            if not skip_vector_search:
+                user_docs = await user_documents_service.get_user_documents(username)
+                if doc_selection:
+                    user_docs = [doc for doc in user_docs if doc.get('filename') in doc_selection]
+                    
+                current_doc_descriptions = [
+                    f"{doc.get('title', 'Untitled')}: {doc.get('description', 'No description')}" 
+                    for doc in user_docs 
+                    if doc.get('description')
+                ]
+
+                try:
+                    enhanced_query = await rag_service.pre_retrieval_module(query, api_keys=api_keys)
+                except Exception:
+                    enhanced_query = query
+
+                retrieval_pool_size = min(top_k * retrieval_multiplier, 50)
+                retrieved_chunks = await rag_service.retrieval_module(
+                    enhanced_query, 
+                    top_k=retrieval_pool_size, 
+                    username=username, 
+                    documents=doc_selection,
+                    similarity_threshold=0.3
+                )
+
+                if retrieved_chunks:
+                    reranked_chunks = await rag_service.post_retrieval_module(
+                        retrieved_chunks, 
+                        query,
+                        target_count=top_k,
+                        min_relevance_score=0.35
+                    )
+                    final_context_chunks = reranked_chunks if reranked_chunks else []
+
+            db_sql_query = None
+            db_sql_results = None
+            if query_request.db_connected:
+                try:
+                    from controller.query_controller import query_controller
+                    from schema.query_schema import NaturalLanguageQueryRequest
+                    
+                    conn_id = await self._ensure_db_connection(query_request.connection_id)
+                    
+                    if conn_id and conn_id in query_controller._schema_cache:
+                        schema_obj = query_controller._schema_cache[conn_id]
+                        fmt_schema = query_controller.sql_analysis_service.format_schema_for_llm(schema_obj)
+                        current_doc_descriptions.append(f"Connected Database Structure:\n{fmt_schema}")
+
+                        req = NaturalLanguageQueryRequest(
+                            connection_id=conn_id,
+                            natural_language_query=query,
+                            model=query_request.model
+                        )
+                        db_res = await query_controller.execute_natural_language_query(req)
+                        if db_res and db_res.success:
+                            db_sql_query = db_res.generated_sql
+                            db_sql_results = db_res.results
+                            current_doc_descriptions.append(
+                                f"Executed SQL Query: `{db_sql_query}`\nSQL Execution Results: {db_sql_results}"
+                            )
+                except Exception as db_err:
+                    logger.warning(f"Database query execution in streaming RAG flow skipped: {db_err}")
+
+            if not final_context_chunks and not current_doc_descriptions and not query_request.db_connected:
+                yield f"data: {json.dumps({'type': 'metadata', 'sources': [], 'thoughts': '', 'sql_query': None})}\n\n"
+                yield f"data: {json.dumps({'type': 'chunk', 'text': 'No active documents or database selected. Please select a document or connect a database to ask questions.'})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+
+            sources = []
+            if not skip_vector_search and final_context_chunks:
+                for chunk in final_context_chunks:
+                    metadata = chunk.get('metadata', {})
+                    rerank_sc = chunk.get('final_score', chunk.get('score', 0.0))
+                    vector_sc = chunk.get('retrieval_score', chunk.get('score', 0.0))
+                    sources.append(SourceDocument(
+                        id=str(chunk.get('id', 'chunk')),
+                        content=metadata.get('content', ''),
+                        title=metadata.get('title'),
+                        score=float(rerank_sc) if rerank_sc is not None else 0.0,
+                        retrieval_score=float(vector_sc) if vector_sc is not None else 0.0
+                    ))
+
+            thoughts_list = []
+            if documents:
+                thoughts_list.append(f"• Document Search: Filtered retrieval to {len(documents)} selected document(s). Retrieved {len(final_context_chunks)} relevant chunk(s).")
+            else:
+                thoughts_list.append(f"• Document Search: Evaluated all available documents. Retrieved {len(final_context_chunks)} relevant chunk(s).")
+            
+            if query_request.db_connected:
+                if db_sql_query:
+                    thoughts_list.append(f"• Database Query: Generated SQL `{db_sql_query}` and retrieved {len(db_sql_results or [])} row(s).")
+                else:
+                    thoughts_list.append("• Database Connection: Active database context enabled for query.")
+            
+            thoughts_list.append("• Hybrid Synthesis: Integrated document passages and database knowledge into unified response.")
+            thoughts_str = "\n".join(thoughts_list)
+
+            # Send metadata header first
+            sources_dict = [s.model_dump() for s in sources]
+            yield f"data: {json.dumps({'type': 'metadata', 'sources': sources_dict, 'thoughts': thoughts_str, 'sql_query': db_sql_query})}\n\n"
+
+            # Stream generation content
+            full_answer = ""
+            async for chunk in rag_service.generation_module_stream(
+                query=query, 
+                context_chunks=final_context_chunks, 
+                chat_history=chat_history, 
+                document_descriptions=current_doc_descriptions,
+                api_keys=api_keys
+            ):
+                full_answer += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+
+            # Save full conversation to chat session history
+            if session_id:
+                await chat_session_service.add_message(session_id, username, "user", query)
+                await chat_session_service.update_session_title_if_needed(session_id, username, query, api_keys)
+                await chat_session_service.add_message(
+                    session_id, username, "assistant", full_answer, sources_dict,
+                    metadata={"thoughts": thoughts_str, "sql_query": db_sql_query, "db_connected": query_request.db_connected}
+                )
+            
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Error in streaming RAG flow for user '{user.get('username')}': {e}")
+            yield f"data: {json.dumps({'type': 'chunk', 'text': '❌ An error occurred while generating the response.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     async def upload_and_index_file(
         self, file: UploadFile, user: Dict[str, Any]

@@ -189,8 +189,8 @@ Generate the SQL query now:"""
         # Convert to uppercase for checking
         sql_upper = sql_query.upper().strip()
         
-        # Must start with SELECT
-        if not sql_upper.startswith("SELECT"):
+        # Must start with SELECT or WITH
+        if not (sql_upper.startswith("SELECT") or sql_upper.startswith("WITH")):
             raise Exception(
                 "Only SELECT queries are allowed. "
                 f"Query starts with: {sql_query[:20]}"
