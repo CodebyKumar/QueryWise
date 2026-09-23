@@ -2,6 +2,8 @@ from typing import Optional
 import logging
 import re
 from service.rag.groq_service import groq_service
+from service.rag.gemini_service import gemini_service
+from lib.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +45,26 @@ class SQLGenerationService:
                 formatted_schema
             )
             
-            # Force DB chat SQL generation to Llama/Groq, regardless of requested model.
             selected_model = model or "llama-3.3-70b-versatile"
-            logger.info(
-                f"Generating SQL for query via Groq Llama. requested_model={selected_model}"
-            )
-            response = await groq_service.generate_answer(prompt)
+            logger.info(f"Generating SQL for query. requested_model={selected_model}")
+            
+            response = None
+            groq_key = settings.groq_api_key
+            google_key = settings.google_api_key
+            
+            if groq_key:
+                try:
+                    response = await groq_service.generate_answer(prompt, api_key=groq_key, model=selected_model)
+                except Exception as err:
+                    logger.warning(f"Groq SQL generation failed: {err}")
+
+            if not response or "service is not available" in response.lower():
+                if google_key:
+                    logger.info("Falling back to Gemini for SQL generation...")
+                    response = await gemini_service.generate_answer(prompt, api_key=google_key)
+
+            if not response:
+                raise Exception("Neither Groq nor Gemini API key is available for SQL generation.")
             
             # Extract clean SQL from response
             sql_query = self._extract_sql_from_response(response)

@@ -414,12 +414,29 @@ You are an expert assistant. Your goal is to provide a comprehensive, well-struc
 Answer:
 """
             
-            if "groq" in model.lower() or "llama" in model.lower():
-                groq_key = api_keys.get("groq_api_key")
-                answer = await groq_service.generate_answer(prompt, api_key=groq_key)
+            groq_key = api_keys.get("groq_api_key") or settings.groq_api_key
+            google_key = api_keys.get("google_api_key") or settings.google_api_key
+
+            prefer_gemini = "gemini" in model.lower()
+
+            answer = None
+            if prefer_gemini:
+                if google_key:
+                    answer = await gemini_service.generate_answer(prompt, api_key=google_key, model=model)
+                if not answer or "service is not available" in answer.lower():
+                    if groq_key:
+                        logger.info("Gemini API key unavailable or failed. Falling back to Groq service...")
+                        answer = await groq_service.generate_answer(prompt, api_key=groq_key)
             else:
-                google_key = api_keys.get("google_api_key")
-                answer = await gemini_service.generate_answer(prompt, api_key=google_key)
+                if groq_key:
+                    answer = await groq_service.generate_answer(prompt, api_key=groq_key, model=model)
+                if not answer or "service is not available" in answer.lower():
+                    if google_key:
+                        logger.info("Groq API key unavailable or failed. Falling back to Gemini service...")
+                        answer = await gemini_service.generate_answer(prompt, api_key=google_key)
+
+            if not answer:
+                answer = "Sorry, neither Groq nor Gemini API key is configured. Please provide an API key in settings or environment."
             
             # Keep the markdown formatting - don't strip it
             logger.info(f"Generated markdown answer for query: {query[:50]}... (length: {len(answer)} chars)")

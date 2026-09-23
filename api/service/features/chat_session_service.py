@@ -111,13 +111,27 @@ class ChatSessionService:
                 from service.rag.gemini_service import gemini_service
                 from service.rag.groq_service import groq_service
                 
-                groq_key = api_keys.get("groq_api_key") if isinstance(api_keys, dict) else None
-                google_key = api_keys.get("google_api_key") if isinstance(api_keys, dict) else api_keys
+                from lib.config import settings
                 
+                user_groq_key = api_keys.get("groq_api_key") if isinstance(api_keys, dict) else None
+                user_google_key = api_keys.get("google_api_key") if isinstance(api_keys, dict) else (api_keys if isinstance(api_keys, str) else None)
+                
+                groq_key = user_groq_key or settings.groq_api_key
+                google_key = user_google_key or settings.google_api_key
+                
+                new_title = None
                 if groq_key:
-                    new_title = await groq_service.generate_chat_title(content, api_key=groq_key)
-                else:
-                    new_title = await gemini_service.generate_chat_title(content, api_key=google_key)
+                    try:
+                        new_title = await groq_service.generate_chat_title(content, api_key=groq_key)
+                    except Exception as e:
+                        logger.warning(f"Groq chat title generation failed: {e}")
+
+                if not new_title or new_title == "New Chat":
+                    if google_key:
+                        try:
+                            new_title = await gemini_service.generate_chat_title(content, api_key=google_key)
+                        except Exception as e:
+                            logger.warning(f"Gemini chat title generation failed: {e}")
                 
                 if new_title and new_title != "New Chat":
                     await collection.update_one(

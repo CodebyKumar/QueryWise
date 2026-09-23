@@ -221,36 +221,42 @@ class SpeechService:
         logger.info(f"Stitched {len(audio_chunks)} audio chunks into {len(result)} bytes")
         return result
     
-    async def transcribe_audio(self, file, api_key: str = None) -> str:
+    async def transcribe_audio(self, file, sarvam_api_key: str = None, groq_api_key: str = None) -> str:
         """
-        Transcribe audio file to text using SarvamAI ASR.
-        
-        Args:
-            file: An uploaded audio file (UploadFile or file-like object)
-            api_key: Optional Sarvam API key
-        
-        Returns:
-            str: The recognized/transcribed text
-        
-        Raises:
-            Exception: If transcription fails
+        Transcribe audio file to text.
+        Primary: Groq Whisper Large V3 Turbo (400 RPM, 400K ASH, $0.04/hr - optimal for multi-user testing).
+        Fallback: SarvamAI saarika:v2.5 ASR.
         """
-        client = self._get_client(api_key)
+        filename = getattr(file, 'filename', 'recording.webm')
+        logger.info(f"Starting audio transcription for file: {filename}")
+        
+        # Read file content bytes
+        if hasattr(file, 'read'):
+            content = await file.read()
+            await file.seek(0)
+        else:
+            content = file
+
+        # 1. Try Groq Whisper Turbo first (High capacity, low cost, fast)
+        from service.rag.groq_service import groq_service
+        try:
+            transcription = await groq_service.transcribe_audio(
+                file_content=content,
+                filename=filename,
+                api_key=groq_api_key,
+                model="whisper-large-v3-turbo"
+            )
+            if transcription and transcription.strip():
+                return transcription.strip()
+        except Exception as groq_err:
+            logger.warning(f"Groq Whisper transcription failed or key not set, trying SarvamAI: {groq_err}")
+
+        # 2. Fallback to SarvamAI ASR if configured
+        client = self._get_client(sarvam_api_key)
         if not client:
-            raise Exception("SarvamAI service not available. Check SARVAM_API_KEY.")
+            raise Exception("Transcription failed: Neither Groq API key nor Sarvam API key is available.")
         
         try:
-            filename = getattr(file, 'filename', 'recording.webm')
-            logger.info(f"Starting audio transcription for file: {filename}")
-            
-            # Read file content
-            if hasattr(file, 'read'):
-                content = await file.read()
-                await file.seek(0)  # Reset file pointer
-            else:
-                content = file
-            
-            # Determine audio codec from filename or content type
             content_type = getattr(file, 'content_type', 'audio/webm')
             if 'webm' in filename.lower() or 'webm' in content_type:
                 audio_codec = 'webm'
@@ -261,19 +267,15 @@ class SpeechService:
             elif 'ogg' in filename.lower() or 'ogg' in content_type:
                 audio_codec = 'ogg'
             else:
-                audio_codec = 'webm'  # Default to webm for browser recordings
+                audio_codec = 'webm'
             
-            logger.info(f"Using audio codec: {audio_codec}")
-            
-            # Call SarvamAI speech-to-text with bytes directly
             response = client.speech_to_text.transcribe(
                 file=content,
                 model="saarika:v2.5",
-                language_code="unknown",  # Let the API detect the language
+                language_code="unknown",
                 input_audio_codec=audio_codec
             )
             
-            # Extract the transcribed text
             if hasattr(response, 'transcript'):
                 text = response.transcript
             elif isinstance(response, dict):
@@ -281,11 +283,11 @@ class SpeechService:
             else:
                 text = str(response)
             
-            logger.info(f"Transcription successful: {text[:100] if text else 'empty'}...")
+            logger.info(f"SarvamAI Transcription successful: {text[:100] if text else 'empty'}...")
             return text or ""
                     
         except Exception as e:
-            logger.error(f"Error during audio transcription: {e}")
+            logger.error(f"Error during SarvamAI audio transcription: {e}")
             raise Exception(f"Transcription failed: {str(e)}")
     
     async def _convert_single_chunk(

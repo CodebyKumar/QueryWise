@@ -28,6 +28,7 @@ class SpeechController:
         username = user.get('username', 'unknown')
         api_keys = user.get('api_keys', {})
         sarvam_key = api_keys.get('sarvam_api_key')
+        groq_key = api_keys.get('groq_api_key')
 
         logger.info(f"User '{username}' requested audio transcription for file: {file.filename}")
         
@@ -38,8 +39,8 @@ class SpeechController:
             logger.warning(f"Unexpected content type: {file.content_type}, proceeding anyway")
         
         try:
-            # Call the speech service
-            transcribed_text = await speech_service.transcribe_audio(file, api_key=sarvam_key)
+            # Call the speech service with both keys
+            transcribed_text = await speech_service.transcribe_audio(file, sarvam_api_key=sarvam_key, groq_api_key=groq_key)
             
             logger.info(f"Transcription successful for user '{username}'")
             return {"text": transcribed_text}

@@ -1,8 +1,5 @@
 # DocuMind - Intelligent Document Chat
 
-> **Built by: kk**  
-
-
 ---
 
 DocuMind is an advanced RAG (Retrieval-Augmented Generation) application that allows users to seamlessly interact with their documents using AI. By leveraging the power of Google's Gemini models, Groq's high-speed inference, and vector search, DocuMind provides accurate, context-aware answers from your uploaded files and databases.

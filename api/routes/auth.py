@@ -27,8 +27,16 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_curre
     Get current user information (Protected route)
     """
     # Remove sensitive information
+    from lib.config import settings
     api_keys = current_user.get("api_keys", {})
     configured_providers = list(api_keys.keys())
+    
+    if settings.google_api_key and "google_api_key" not in configured_providers:
+        configured_providers.append("google_api_key")
+    if settings.groq_api_key and "groq_api_key" not in configured_providers:
+        configured_providers.append("groq_api_key")
+    if settings.sarvam_api_key and "sarvam_api_key" not in configured_providers:
+        configured_providers.append("sarvam_api_key")
 
     user_info = {
         "username": current_user["username"],

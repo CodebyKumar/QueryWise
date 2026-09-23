@@ -7,6 +7,8 @@ import { exportService } from "../../services/exportService";
 import { useToast } from "../../hooks/useToast";
 import { useAuth } from "../../hooks/useAuth";
 
+import { authService } from "../../services/authService";
+
 export function ChatInterface({
   session,
   onSessionUpdate,
@@ -25,7 +27,38 @@ export function ChatInterface({
   const { showToast } = useToast();
   const { user } = useAuth();
   const [showDocDropdown, setShowDocDropdown] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  
+  // Persistent & Intelligent Model Selection
+  const [selectedModel, setSelectedModel] = useState(() => {
+    return localStorage.getItem('preferred_model') || 'gemini-2.5-flash';
+  });
+
+  useEffect(() => {
+    const detectDefaultModel = async () => {
+      const savedModel = localStorage.getItem('preferred_model');
+      if (savedModel) return; // Respect user explicit choice if already set
+
+      try {
+        const userData = await authService.getCurrentUser();
+        const providers = userData?.user?.configured_providers || [];
+        if (providers.includes('groq_api_key') && !providers.includes('google_api_key')) {
+          setSelectedModel('llama-3.3-70b-versatile');
+        } else if (providers.includes('google_api_key')) {
+          setSelectedModel('gemini-2.5-flash');
+        } else if (providers.includes('groq_api_key')) {
+          setSelectedModel('llama-3.3-70b-versatile');
+        }
+      } catch (err) {
+        console.error('Failed to detect available API providers:', err);
+      }
+    };
+    detectDefaultModel();
+  }, []);
+
+  const handleModelChange = (modelId) => {
+    setSelectedModel(modelId);
+    localStorage.setItem('preferred_model', modelId);
+  };
 
   // Filter selected documents against available documents to handle deletions and get titles
   const validDocs = availableDocuments.filter(doc => selectedDocuments.includes(doc.filename));
@@ -276,7 +309,7 @@ export function ChatInterface({
                 onAttachClick={onAttachDocuments}
                 showDisclaimer={false}
                 model={selectedModel}
-                onModelChange={setSelectedModel}
+                onModelChange={handleModelChange}
               />
             </div>
 
@@ -327,7 +360,7 @@ export function ChatInterface({
               onResponseStyleChange={setResponseStyle}
               onAttachClick={onAttachDocuments}
               model={selectedModel}
-              onModelChange={setSelectedModel}
+              onModelChange={handleModelChange}
             />
           </div>
         </div>

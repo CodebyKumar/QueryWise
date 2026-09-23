@@ -11,6 +11,7 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef(null);
+  const recognitionRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const { showToast } = useToast();
@@ -21,12 +22,58 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) { }
+      }
     };
   }, []);
 
   const startRecording = async () => {
+    // 1. Try Browser Web Speech API first (Instant, zero server cost)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+          const text = event.results[0][0].transcript;
+          if (text && text.trim()) {
+            onTranscribe?.(text.trim());
+            if (onAutoSubmit) onAutoSubmit(text.trim());
+          } else {
+            showToast({ type: 'warning', message: 'No speech detected. Please try again.' });
+          }
+          setIsRecording(false);
+        };
+
+        recognition.onerror = (event) => {
+          console.warn('Web Speech API error, falling back to server Whisper:', event.error);
+          setIsRecording(false);
+          startMediaRecorder(); // Fallback to MediaRecorder + Groq Whisper
+        };
+
+        recognition.onend = () => {
+          setIsRecording(false);
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsRecording(true);
+        return;
+      } catch (err) {
+        console.warn('Web Speech API start failed, using server Whisper fallback:', err);
+      }
+    }
+
+    // 2. Fallback to MediaRecorder + Server Groq Whisper
+    await startMediaRecorder();
+  };
+
+  const startMediaRecorder = async () => {
     try {
-      // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -36,7 +83,6 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme
       });
       streamRef.current = stream;
 
-      // Create MediaRecorder
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg',
       });
@@ -50,17 +96,11 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme
       };
 
       mediaRecorder.onstop = async () => {
-        // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
-
-        // Create blob from chunks
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-
-        // Send to API
         await processAudio(audioBlob);
       };
 
-      // Start recording
       mediaRecorder.start();
       setIsRecording(true);
 
@@ -77,6 +117,11 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme
   };
 
   const stopRecording = () => {
+    if (recognitionRef.current && isRecording) {
+      try { recognitionRef.current.stop(); } catch (e) { }
+      setIsRecording(false);
+      return;
+    }
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
@@ -90,10 +135,7 @@ export function VoiceInput({ onTranscribe, onAutoSubmit, disabled = false, theme
       const transcribedText = result.text;
 
       if (transcribedText && transcribedText.trim()) {
-        // Call the callback with transcribed text
         onTranscribe?.(transcribedText);
-
-        // Auto-submit if callback provided
         if (onAutoSubmit) {
           onAutoSubmit(transcribedText);
         }

@@ -38,9 +38,36 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
     }
   }, [showExportMenu, showStyleMenu, showModelMenu]);
 
+  const MODEL_OPTIONS = [
+    {
+      category: "Google Gemini",
+      items: [
+        { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: 'Fast & Versatile (Google)' },
+      ]
+    },
+    {
+      category: "Production Models (Groq)",
+      items: [
+        { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', desc: '280 t/s • Versatile' },
+        { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', desc: '560 t/s • Instant' },
+        { id: 'openai/gpt-oss-120b', label: 'GPT OSS 120B', desc: '500 t/s • High Reasoning' },
+        { id: 'openai/gpt-oss-20b', label: 'GPT OSS 20B', desc: '1000 t/s • Ultra Fast' },
+      ]
+    },
+    {
+      category: "Preview Models (Groq)",
+      items: [
+        { id: 'qwen/qwen3.8-27b', label: 'Qwen 3.8 27B', desc: '450 t/s • Alibaba Cloud' },
+        { id: 'minimaxai/minimax-m2.7', label: 'MiniMax M2.7', desc: '260 t/s • 196k Context' },
+      ]
+    }
+  ];
+
   const getModelLabel = (val) => {
-    if (val === 'gemini-2.5-flash') return 'Gemini 2.5';
-    if (val === 'llama-3.3-70b-versatile') return 'Llama 3.3';
+    for (const group of MODEL_OPTIONS) {
+      const match = group.items.find(item => item.id === val);
+      if (match) return match.label;
+    }
     return 'Model';
   };
 
@@ -250,39 +277,39 @@ export function QueryInput({ onSend, disabled, onExportChat, responseStyle = 'au
                   </button>
 
                   {showModelMenu && (
-                    <div className="absolute bottom-full left-0 mb-2 w-56 bg-white border border-gray-100 rounded-xl shadow-xl py-2 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                      <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">
-                        Select Model
-                      </div>
-                      {[
-                        { id: 'gemini-2.5-flash', label: 'Gemini 2.5', desc: 'Fast & Versatile' },
-                        { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3', desc: 'Powerful Open Model' }
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            onModelChange(item.id);
-                            setShowModelMenu(false);
-                          }}
-                          className={`
-                              w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-all
-                              ${model === item.id
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-gray-600 hover:bg-gray-50'}
-                            `}
-                        >
-
-                          <div className="flex flex-col items-start">
-                            <span className="capitalize">{item.label}</span>
-                            <span className="text-[10px] opacity-60 font-normal leading-tight">{item.desc}</span>
+                    <div className="absolute bottom-full left-0 mb-2 w-64 max-h-60 overflow-y-auto bg-white border border-gray-100 rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      {MODEL_OPTIONS.map((group, groupIdx) => (
+                        <div key={groupIdx} className="mb-2 last:mb-0">
+                          <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/70 border-y border-gray-100/60 my-1">
+                            {group.category}
                           </div>
-                          {model === item.id && (
-                            <svg className="w-4 h-4 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
+                          {group.items.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                onModelChange(item.id);
+                                setShowModelMenu(false);
+                              }}
+                              className={`
+                                  w-full flex items-center justify-between px-3 py-2 text-sm transition-all
+                                  ${model === item.id
+                                  ? 'bg-blue-50/80 text-blue-700 font-medium'
+                                  : 'text-gray-700 hover:bg-gray-50'}
+                                `}
+                            >
+                              <div className="flex flex-col items-start min-w-0 pr-2">
+                                <span className="text-xs font-semibold truncate">{item.label}</span>
+                                <span className="text-[10px] opacity-65 font-normal leading-tight truncate">{item.desc}</span>
+                              </div>
+                              {model === item.id && (
+                                <svg className="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}
