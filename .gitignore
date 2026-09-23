@@ -1,8 +1,8 @@
 # Environment variables
 .env
 .env.local
-.env.production
 .env.development
+# Note: .env.production is committed intentionally (only contains public build-time VITE_ vars)
 
 # Dependencies
 node_modules/

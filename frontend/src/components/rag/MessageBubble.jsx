@@ -55,9 +55,8 @@ export function MessageBubble(props) {
   const [isCopied, setIsCopied] = useState(false);
   const { showToast } = useToast();
 
-  // Safety check for content
-  if (!content) {
-    console.warn("MessageBubble received empty content");
+  // Safety check for content — allow empty string for streaming placeholder
+  if (content === null || content === undefined) {
     return null;
   }
 
@@ -109,6 +108,23 @@ export function MessageBubble(props) {
           <p className="text-gray-900 text-sm leading-relaxed break-words">
             {content}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // For streaming assistant messages with empty content — show loading dots
+  if (type === 'assistant' && content === '') {
+    return (
+      <div className="w-full mb-10 group">
+        <div className="flex gap-4 w-full">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 py-3">
+              <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
         </div>
       </div>
     );
